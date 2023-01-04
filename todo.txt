@@ -1,0 +1,9 @@
+Unit tests are going to be my best friend here.
+
+I would like a queuing mechanism that allows me to vote on a cateogry for a thing it doesn't recognize.  I want it to learn over time.
+
+I would like some reporting functionality to show me heat maps month over month.
+
+I would like a way to maintain the categories.
+
+
