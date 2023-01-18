@@ -114,13 +114,27 @@ class SqliteClient:
             connection.execute_sql(table_sql)
             print('Created tblTransaction')
 
+        if "tblCategoryMatchString" not in tables:
+            table_sql = """
+             CREATE TABLE "tblCategoryMatchString" (
+                "MatchID"	INTEGER,
+                "CategoryID"	INT,
+                "MatchString"  TEXT,
+                FOREIGN KEY("CategoryID") REFERENCES "tblCategory"("CategoryID"),
+                PRIMARY KEY("MatchID" AUTOINCREMENT),
+                UNIQUE(CategoryID, MatchString)
+            );
+            """
+            connection.execute_sql(table_sql)
+            print('Created tblCategoryMatchString')
+
         connection.wrap_it_up()
 
     def get_category_id(self, category_name):
         sql = f"""
         SELECT CategoryID
         FROM tblCategory 
-        WHERE CategoryName = '{category_name}'
+        WHERE Name = '{category_name}'
         """
 
         connection = ConnectionWrapper(self.database_name)
@@ -136,6 +150,8 @@ class SqliteClient:
             connection.wrap_it_up()
 
     def insert_category(self, category_name):
+        category_name = category_name.lower()
+
         sql = f"""
         INSERT OR IGNORE INTO tblCategory (Name) VALUES ('{category_name}');
         """
@@ -221,6 +237,70 @@ class SqliteClient:
             WHERE InputFileID = {file_id}
             """
 
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
+
+    def get_uncategorized_transactions(self):
+        sql = f"""
+        SELECT TxID, TxDenomination, TxMemoRaw
+        FROM tblTransaction tx
+        INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
+        WHERE TxCategoryID IS NULL AND TxDenomination < 0
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+    def get_memos_to_categories(self):
+        sql = f"""
+        SELECT cms.CategoryID, cat.Name AS CategoryName, MatchString
+        FROM tblCategoryMatchString cms
+        INNER JOIN tblCategory cat ON cms.CategoryID = cat.CategoryID
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+    def insert_memo_to_category(self, memo, category_id):
+        sql = f"""
+        INSERT OR IGNORE INTO tblCategoryMatchString (CategoryID, MatchString) VALUES ({category_id}, '{memo}');
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
+
+    def get_categories(self):
+        sql = f"""
+        SELECT CategoryID, Name 
+        FROM tblCategory
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+    def set_category_id_for_tx(self, tx_id, category_id):
+        sql = f"""
+        UPDATE tblTransaction
+        SET TxCategoryID = {category_id}
+        WHERE TxID = {tx_id}
+        """
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)

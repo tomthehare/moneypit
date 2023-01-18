@@ -1,3 +1,4 @@
 pytest
 coloredlogs
 pdbpp
+python-Levenshtein

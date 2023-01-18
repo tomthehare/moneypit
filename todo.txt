@@ -6,4 +6,4 @@ I would like some reporting functionality to show me heat maps month over month.
 
 I would like a way to maintain the categories.
 
-
+Show the origin of the tx when asking where it came from [Chase, whatever]

@@ -39,6 +39,7 @@ class CapitalOneParser(Parser):
 
         for line in contents:
             line = line.strip()
+            logging.debug('Loaded line: ' + line)
             if self.is_ignored_line(line):
                 continue
 
@@ -92,6 +93,7 @@ class BarclaysParser(Parser):
 
         for line in contents:
             line = line.strip()
+            logging.debug('Loaded line: ' + line)
             if self.is_ignored_line(line):
                 continue
 
@@ -147,7 +149,7 @@ class ChaseParser(Parser):
 
         for line in contents:
             line = line.strip()
-            logging.debug('Line: '  + line)
+            logging.debug('Loaded line: '  + line)
             if self.is_ignored_line(line):
                 continue
 
