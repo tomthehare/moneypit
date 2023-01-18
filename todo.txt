@@ -6,4 +6,6 @@ I would like some reporting functionality to show me heat maps month over month.
 
 I would like a way to maintain the categories.
 
+I would like to be able to run a make command to encrypt the database to be checked into git.  
+
 Show the origin of the tx when asking where it came from [Chase, whatever]
