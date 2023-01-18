@@ -3,3 +3,6 @@ default:
 
 test:
 	echo "Testing it"
+
+exec:
+	python3 main.py

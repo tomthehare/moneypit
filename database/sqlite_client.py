@@ -1,5 +1,8 @@
 import sqlite3
 
+from utility.time_observer import TimeObserver
+
+
 class ConnectionWrapper:
     _cursor = None
     _connection = None
@@ -29,7 +32,6 @@ class SqliteClient:
         self.database_name = database_name
         self.create_tables_if_not_exist()
 
-
     def create_tables_if_not_exist(self):
         sql = """
         SELECT name FROM sqlite_master WHERE type = \'table\'
@@ -45,34 +47,34 @@ class SqliteClient:
             tables.append(result[0])
 
         
-	if "tblSourceBank" not in tables:
+        if "tblSourceBank" not in tables:
             table_sql = """
-             CREATE TABLE tblSourceBank (
-                SourceBankID INTEGER PRIMARY KEY AUTOINCREMENT,
-                Name TEXT,
-                UNIQUE(Name)
-	    );
+                 CREATE TABLE tblSourceBank (
+                    SourceBankID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Name TEXT,
+                    UNIQUE(Name)
+            );
             """
             connection.execute_sql(table_sql)
             print('Created tblSourceBank')
 
-	    source_bank_seed = [
-              'Chase',
-              'CapitalOne',
-              'Barclays'
-            ]
+        source_bank_seed = [
+          'Chase',
+          'CapitalOne',
+          'Barclays'
+        ]
 
-            for bank in source_bank_seed:
-              connection.execute_sql('INSERT INTO tblSourceBank (Name) VALUES (\'\s\');' % bank)
-              print('Added ' + bank + ' to database tblSourceBank')
+        for bank in source_bank_seed:
+            connection.execute_sql('INSERT OR IGNORE INTO tblSourceBank (Name) VALUES (\'%s\');' % bank)
+            print('Added ' + bank + ' to database tblSourceBank')
 
-	if "tblCategory" not in tables:
+        if "tblCategory" not in tables:
             table_sql = """
              CREATE TABLE tblCategory (
                 CategoryID INTEGER PRIMARY KEY AUTOINCREMENT,
                 Name TEXT,
                 UNIQUE(Name)
-	    );
+            );
             """
             connection.execute_sql(table_sql)
             print('Created tblCategory')
@@ -82,69 +84,145 @@ class SqliteClient:
              CREATE TABLE tblInputFile (
                 InputFileID INTEGER PRIMARY KEY AUTOINCREMENT,
                 SourceBankID INTEGER,
-		DateCreatedTimestamp INTEGER,
-		DateCreatedHuman TEXT,
-		DateProcessedSuccessfullyTimestamp INTEGER,
-                FOREIGN KEY(SourceBankID) REFERNECES tblSourceBank(SourceBankID)
+                DateCreatedTimestamp INTEGER,
+                DateCreatedHuman TEXT,
+                FileName TEXT,
+                DateProcessedSuccessfullyTimestamp INTEGER NULL,
+                FOREIGN KEY(SourceBankID) REFERENCES tblSourceBank(SourceBankID),
+                UNIQUE(SourceBankID, FileName)
             );
             """
             connection.execute_sql(table_sql)
             print('Created tblInputFile')
 
-	
         if "tblTransaction" not in tables:
             table_sql = """
-             CREATE TABLE tblTransaction (
-                TxID INTEGER PRIMARY KEY AUTOINCREMENT,
-                TxDenomination REAL,
-		TxDateHuman TEXT,
-		TxDateTimestamp INTEGER,
-		TxMemoRaw TEXT,
-		TxCategoryID INTEGER NULL,
-		InputFileID INTEGER,
-		FOREIGN KEY(TxCategoryID) REFERENCES tblCateogry(CategoryID),
-		FOREIGN KEY(InputFileID) REFERENCES tblInputFile(InputFileID)
+             CREATE TABLE "tblTransaction" (
+                "TxID"	INTEGER,
+                "TxDenomination"	REAL,
+                "TxDateHuman"	TEXT,
+                "TxDateTimestamp"	INTEGER,
+                "TxMemoRaw"	TEXT,
+                "TxCategoryID"	INTEGER,
+                "InputFileID"	INTEGER,
+                FOREIGN KEY("InputFileID") REFERENCES "tblInputFile"("InputFileID"),
+                FOREIGN KEY("TxCategoryID") REFERENCES "tblCategory"("CategoryID"),
+                PRIMARY KEY("TxID" AUTOINCREMENT),
+                UNIQUE(TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, InputFileID)
             );
             """
             connection.execute_sql(table_sql)
             print('Created tblTransaction')
 
+        connection.wrap_it_up()
 
-    def insert_monolith_measurement(
-        self,
-        git_group_id,
-        date_unix_timestamp,
-        human_date_stamp,
-        file_count
-    ):
+    def get_category_id(self, category_name):
         sql = f"""
-        INSERT OR IGNORE INTO tblMonolithMeasurement (GroupID, DateUnixTimestamp, HumanDateStamp, FileCount)
-        VALUES ({git_group_id}, {date_unix_timestamp}, '{human_date_stamp}', {file_count})
+        SELECT CategoryID
+        FROM tblCategory 
+        WHERE CategoryName = '{category_name}'
         """
 
         connection = ConnectionWrapper(self.database_name)
-
-        try:
-            connection.execute_sql(sql)
-        finally:
-            connection.wrap_it_up()
-
-
-    def get_first_measurements(self, qualifier):
-        sql = f"""
-        SELECT GroupName, MIN(DateUnixTimestamp) AS DateUnixTimestamp, HumanDateStamp, FileCount
-        FROM tblMonolithMeasurement 
-        INNER JOIN tblGitGroup ON tblGitGroup.ID = tblMonolithMeasurement.GroupID
-        WHERE {qualifier} = 1
-        GROUP BY GroupID
-        """
-        connection = ConnectionWrapper(self.database_name)
-
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
+
+            if not results:
+                return None
+
+            return results[0][0]
         finally:
             connection.wrap_it_up()
 
-        return results
+    def insert_category(self, category_name):
+        sql = f"""
+        INSERT OR IGNORE INTO tblCategory (Name) VALUES ('{category_name}');
+        """
 
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+           connection.wrap_it_up()
+
+    def insert_input_file(self, source_bank_id, date_created_timestamp, human_date_created, file_name):
+        sql = f"""
+        INSERT OR IGNORE INTO tblInputFile (
+            SourceBankID,
+            DateCreatedTimestamp,
+            DateCreatedHuman,
+            FileName
+        ) VALUES (
+            {source_bank_id},
+            {date_created_timestamp},
+            '{human_date_created}',
+            '{file_name}'
+        )
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
+
+    def get_input_file_id(self, source_bank_id, file_name):
+        sql = f"""
+        SELECT InputFileID, DateProcessedSuccessfullyTimestamp
+        FROM tblInputFile 
+        WHERE SourceBankID = {source_bank_id}
+          AND FileName = '{file_name}'
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+
+            if not results:
+                return None
+
+            return (results[0][0], results[0][1])
+        finally:
+            connection.wrap_it_up()
+
+    def insert_transaction(self, denomination, date_human, date_timestamp, memo_raw, file_id):
+        memo_raw = memo_raw.replace('\'', '')
+
+        sql = f"""
+        INSERT OR IGNORE INTO tblTransaction(
+            TxDenomination,
+            TxDateHuman,
+            TxDateTimestamp,
+            TxMemoRaw,
+            InputFileID
+        ) VALUES (
+            {denomination},
+            '{date_human}',
+            {date_timestamp},
+            '{memo_raw}',
+            {file_id}
+        );
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
+
+    def set_processed_success_date(self, file_id):
+        now_timestamp = TimeObserver.get_timestamp_from_date_string(TimeObserver.get_now_date_string())
+
+        sql = f"""
+            UPDATE tblInputFile
+            SET DateProcessedSuccessfullyTimestamp = {now_timestamp}
+            WHERE InputFileID = {file_id}
+            """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
