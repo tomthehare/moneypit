@@ -306,3 +306,22 @@ class SqliteClient:
             connection.execute_sql(sql)
         finally:
             connection.wrap_it_up()
+
+    def get_data_for_time_slice(self, date_start, date_end):
+        sql = f"""
+        SELECT cat.Name, TxDenomination, TxDateTimestamp
+        FROM tblTransaction tx
+        INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
+        WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
+          AND TxDateTimestamp > {date_start}
+          AND TxDateTimestamp <= {date_end}
+          AND TxDenomination < 0
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+
+            return [{'CategoryName': a[0], 'MoneySpent': a[1], 'Timestamp': a[2]} for a in results]
+        finally:
+            connection.wrap_it_up()

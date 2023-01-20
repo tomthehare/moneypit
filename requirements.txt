@@ -2,3 +2,7 @@ pytest
 coloredlogs
 pdbpp
 python-Levenshtein
+flask
+json2html
+pytz
+python-dateutil

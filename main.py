@@ -52,7 +52,12 @@ def determine_category_id(memo, categorizer: Categorizer, sqlite_client: SqliteC
     best_category = categorizer.guess_best_category(memo)
 
     if best_category:
-        logging.debug('Using best guess category: ' + best_category['category_name'])
+        category_name = best_category['category_name']
+        logging.debug('Using best guess category: ' + category_name)
+
+        if not best_category['category_id']:
+            best_category['category_id'] = sqlite_client.get_category_id(category_name)
+
         return best_category['category_id']
 
     category_names = categorizer.get_category_names()

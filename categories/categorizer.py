@@ -1,3 +1,5 @@
+import logging
+
 from Levenshtein import distance as levenshtein_distance
 import re
 
@@ -28,7 +30,26 @@ class Categorizer:
             return self.memos_to_categories_dict[memo]
 
         # Else, might need to do some keyword searching to make a best guess at the category
+        # throwing this in code for now.  It could definitely be in the DB if it were able to be
+        # customized, though.
+        mappings_in_code = {
+            'amzn mktp': 'amazon',
+            'amazon com': 'amazon',
+            'amz descriptor': 'amazon',
+            'amzn': 'amazon',
+            'exxonmobil': 'travel',
+            'nintendo': 'recreation',
+            'wf wayfair': 'home improvement',
+            'target': 'target',
+            'kindle svcs': 'recreation',
+        }
 
+        for key in mappings_in_code:
+            if key in memo:
+                logging.debug('Using mapped keyword to find category: ' + mappings_in_code[key])
+                return {'category_id': None, 'category_name': mappings_in_code[key]}
+
+        return None
 
     def refresh_memos_to_cateogries_dict(self):
         data = self.sqlite_client.get_memos_to_categories()
