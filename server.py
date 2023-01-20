@@ -32,12 +32,16 @@ def heatmap():
     date_start = 1656561600
     date_end = 1673931600
 
+    # I think I need to set up the "matrix" of data up here.  Figure out what months are in the
+    # date range, and fill in all categories and all months.
+
     results = db_client.get_data_for_time_slice(date_start, date_end)
 
-    data = []
+    data = {}
 
     #{'CategoryName': 'amazon', 'MoneySpent': -9.99, 'Timestamp'
     # need to get a unique list of the categories first?  Maybe from the DB...
+    categories = db_client.get_categories()
 
     for datapoint in results:
         category = datapoint['CategoryName']
@@ -47,7 +51,18 @@ def heatmap():
         month_integer = get_timestamp_month_integer(timestamp)
         year_integer = get_timestamp_year_integer(timestamp)
 
-        data
+        # Why am I doing this here and not the database?  Sqlite can't do it.  No dates.
+
+        date_key = str(year_integer) + '-' + str(month_integer)
+
+        if category not in data:
+            data[category] = {}
+
+        if date_key not in data[category]:
+            data[category][date_key] = 0
+
+        data[category][date_key] += money_spent
+
 
     return render_template(
             "heatmap.html",
