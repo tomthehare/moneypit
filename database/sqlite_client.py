@@ -282,11 +282,14 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-    def get_categories(self):
+    def get_categories(self, filter = ''):
         sql = f"""
         SELECT CategoryID, Name 
         FROM tblCategory
         """
+
+        if filter:
+            sql = sql + f"WHERE Name = '{filter}'"
 
         connection = ConnectionWrapper(self.database_name)
         try:
@@ -317,6 +320,7 @@ class SqliteClient:
           AND TxDateTimestamp <= {date_end}
           AND TxDenomination < 0
         """
+
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)

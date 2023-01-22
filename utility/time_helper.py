@@ -15,6 +15,9 @@ def format_timestamp_as_hour_time(timestamp):
     dt_local = datetime.fromtimestamp(timestamp, tz.tzlocal())
     return dt_local.strftime("%d %H:%M")
 
+def get_datetime_for_timestamp(timestamp) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz.tzlocal())
+
 def timestamp_now():
     return round(time.time())
 

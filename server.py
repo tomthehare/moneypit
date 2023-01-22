@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify, render_template, render_template_string, Response
+from flask import Flask, request, render_template
 from datetime import datetime
 from json2html import *
 import pytz
-from utility.time_helper import format_timestamp_as_local, get_timestamp_month_integer, get_timestamp_year_integer
-import logging
+
+from data_containers.data_heatmap import DataHeatmap
+from utility.time_helper import format_timestamp_as_local
+import coloredlogs, logging
 
 from database.sqlite_client import SqliteClient
 
@@ -17,131 +19,32 @@ handler.setFormatter(logFormatter)
 _logger.setLevel(logging.DEBUG)
 _logger.addHandler(handler)
 
+coloredlogs.install(level='DEBUG')
+
+IGNORED_CATEGORIES = ['check']
 
 def get_adjusted_offset_seconds():
     now = datetime.now(pytz.timezone('America/New_York'))
     return now.utcoffset().total_seconds()
 
-@app.route('/')
-def hello():
-    _logger.info('Hey there!')
-    return 'hey there fella ' + str(get_adjusted_offset_seconds())
+@app.route('/moneypit/heatmap/months')
+def heatmap_months():
+    ts_start = int(request.args.get('ts_start', 1656561600))
+    ts_end = int(request.args.get('ts_end', 1673931600))
 
-@app.route('/moneypit/heatmap')
-def heatmap():
-    date_start = 1656561600
-    date_end = 1673931600
-
-    # I think I need to set up the "matrix" of data up here.  Figure out what months are in the
-    # date range, and fill in all categories and all months.
-
-    results = db_client.get_data_for_time_slice(date_start, date_end)
-
-    data = {}
-
-    #{'CategoryName': 'amazon', 'MoneySpent': -9.99, 'Timestamp'
-    # need to get a unique list of the categories first?  Maybe from the DB...
     categories = db_client.get_categories()
 
-    for datapoint in results:
-        category = datapoint['CategoryName']
-        money_spent = datapoint['MoneySpent']
-        timestamp = datapoint['Timestamp']
+    filtered_categories = [a for a in categories if a[1] not in IGNORED_CATEGORIES]
 
-        month_integer = get_timestamp_month_integer(timestamp)
-        year_integer = get_timestamp_year_integer(timestamp)
+    results = db_client.get_data_for_time_slice(ts_start, ts_end)
 
-        # Why am I doing this here and not the database?  Sqlite can't do it.  No dates.
-
-        date_key = str(year_integer) + '-' + str(month_integer)
-
-        if category not in data:
-            data[category] = {}
-
-        if date_key not in data[category]:
-            data[category][date_key] = 0
-
-        data[category][date_key] += money_spent
-
+    heatmap_data_container = DataHeatmap()
+    heatmap_data_container.init_from_raw(results, filtered_categories)
 
     return render_template(
             "heatmap.html",
-            date_start=format_timestamp_as_local(date_start),
-            date_end=format_timestamp_as_local(date_end),
-            data=data
+            date_start=format_timestamp_as_local(ts_start),
+            date_end=format_timestamp_as_local(ts_end),
+            heatmap_data_container=heatmap_data_container,
+            categories=sorted([a[1] for a in filtered_categories])
         )
-
-# @app.route('/scatter', methods=['GET'])
-# def scatter():
-#     hours_back = request.args.get("hours_back", default=24, type=int)
-#
-#     date_start = round(time.time() - (3600 * hours_back))
-#     date_end = round(time.time())
-#
-#     temp_plot_object = graph_helper.get_temperature_graph_object(date_start, date_end)
-#     humid_plot_object = graph_helper.get_humidity_graph_object(date_start, date_end)
-#
-#     summary_details = get_summary_dictionary()
-#
-#     _logger.info(json.dumps(summary_details, indent=2))
-#
-#     if not summary_details:
-#         inside_temperature = '?'
-#         outside_temperature = '?'
-#     else:
-#         inside_temperature = summary_details['Inside Temperature']['InsideDegreesF']
-#         outside_temperature = summary_details['Outside Temperature']['OutsideDegreesF']
-#         inside_humidity = summary_details['Inside Humidity']['InsidePercentage']
-#         outside_humidity = summary_details['Outside Humidity']['OutsidePercentage']
-#
-#     fan_config = read_fan_config()
-#     watering_queue = get_watering_queue_detailed()
-#     valve_config = get_valve_config_dict()
-#
-#     fan_data_object = graph_helper.get_fan_data(date_start, date_end, 3600)
-#     fan_on_off_data = client.read_fan_data(date_start, date_end)
-#
-#     fan_events = []
-#     for event_hash, ts_on, ts_off in fan_on_off_data:
-#         if ts_off is None:
-#             ts_off = round(time.time())
-#
-#         minutes_on_total = round(((ts_off - ts_on) / 60))
-#
-#         hours_on = math.floor(minutes_on_total / 60)
-#         minutes_remainder = minutes_on_total % 60
-#
-#         human_time_string = ""
-#         if hours_on > 0:
-#             human_time_string = "%d hours " % hours_on
-#
-#         human_time_string = human_time_string + ("%d minutes" % minutes_remainder)
-#
-#         fan_events.append(
-#             {
-#                 'ts_on': format_timestamp_as_local(ts_on),
-#                 'ts_off': format_timestamp_as_local(ts_off),
-#                 'on_minutes': human_time_string
-#             }
-#         )
-#
-#     fan_events.reverse()
-#
-#     return render_template(
-#         "scatter.html",
-#         date_start=format_timestamp_as_local(date_start),
-#         date_end=format_timestamp_as_local(date_end),
-#         temp_plot=temp_plot_object,
-#         humid_plot=humid_plot_object,
-#         inside_temp=inside_temperature,
-#         outside_temp=outside_temperature,
-#         delta_temp=round(inside_temperature - outside_temperature, 1),
-#         inside_humidity=inside_humidity,
-#         outside_humidity=outside_humidity,
-#         delta_humidity=round(inside_humidity - outside_humidity, 1),
-#         fan_temp=fan_config['fan_temp'],
-#         watering_queue=watering_queue,
-#         valve_config_list=valve_config,
-#         fan_data_object=fan_data_object,
-#         fan_events=fan_events
-#     )
