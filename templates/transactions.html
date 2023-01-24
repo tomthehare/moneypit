@@ -5,7 +5,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
 <head lang="en">
     <meta charset="UTF-8">
-    <title>Moneypit - Heatmap</title>
+    <title>Moneypit - Breakdown</title>
     <style>
         h2 {text-align: center;}
 	th, td {
@@ -15,7 +15,7 @@
 </head>
 <body>
 <h1 class="display-2">
-{{ date_start + ' to ' + date_end }}
+{{ category + ": " + date_start + ' - ' + date_end }}
 </h1>
 
 <div class="container-fluid">
@@ -23,24 +23,17 @@
 		<div class="col-md-50">
 			<table border="1px" class=".table">
 				<tr>
-					<th>Category</th>
-				{% for date_key in heatmap_data_container.get_dates() %}
-					<th>
-					{{ date_key }}
-					</th>
-				{% endfor %}
+					<th>MoneySpent</th>
+					<th>Timestamp</th>
+					<th>Memo</th>
 				</tr>
-
-			{%for cat in categories%}
+				{% for datum in data %}
 				<tr>
-					<td>{{cat}}</td>
-					{% for date_key in heatmap_data_container.get_dates() %}
-						<td bgcolor="{{ heatmap_data_container.get_rgb(date_key, cat) }}">
-							<a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">{{  "${:,.2f}".format(heatmap_data_container.get_value(date_key, cat)) }}</a>
-						</td>
-					{% endfor %}
+					<td>{{ datum['MoneySpent'] }}</td>
+					<td>{{ datum['Timestamp'] }}</td>
+					<td>{{ datum['Memo'] }}</td>
 				</tr>
-			{% endfor %}
+				{% endfor %}
 			</table>
 		</div>
 	</div>

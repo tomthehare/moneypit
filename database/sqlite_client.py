@@ -310,9 +310,9 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-    def get_data_for_time_slice(self, date_start, date_end):
+    def get_data_for_time_slice(self, date_start, date_end, category_filter = ''):
         sql = f"""
-        SELECT cat.Name, TxDenomination, TxDateTimestamp
+        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw
         FROM tblTransaction tx
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
         WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
@@ -321,11 +321,14 @@ class SqliteClient:
           AND TxDenomination < 0
         """
 
+        if category_filter != '':
+            sql = sql + f" AND cat.Name = '{category_filter}'"
+
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
 
-            return [{'CategoryName': a[0], 'MoneySpent': a[1], 'Timestamp': a[2]} for a in results]
+            return [{'CategoryName': a[0], 'MoneySpent': a[1], 'Timestamp': a[2], 'Memo': a[3]} for a in results]
         finally:
             connection.wrap_it_up()

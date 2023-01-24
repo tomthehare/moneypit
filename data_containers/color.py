@@ -42,10 +42,6 @@ class Color:
         if len(self.blue) == 1:
             self.blue = '0' + self.blue
 
-        logging.debug('setting red to: ' + str(self.red))
-        logging.debug('setting blue to: ' + str(self.green))
-        logging.debug('setting green to: ' + str(self.blue))
-
     def set_hsl(self):
         (self.hue, self.lightness, self.saturation) = colorsys.rgb_to_hls(
             self.convert_hex_to_float(self.red),
