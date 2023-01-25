@@ -26,12 +26,14 @@
 					<th>MoneySpent</th>
 					<th>Timestamp</th>
 					<th>Memo</th>
+					<th>Source</th>
 				</tr>
 				{% for datum in data %}
 				<tr>
 					<td>{{ datum['MoneySpent'] }}</td>
 					<td>{{ datum['Timestamp'] }}</td>
 					<td>{{ datum['Memo'] }}</td>
+					<td>{{ datum['SourceBankName'] }}</td>
 					<td>
 						<form action="/moneypit/transaction/category" method="post">
 							<select name="category-id" id="category-id">

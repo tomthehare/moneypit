@@ -328,9 +328,11 @@ class SqliteClient:
 
     def get_data_for_time_slice(self, date_start, date_end, category_filter = ''):
         sql = f"""
-        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxID
+        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxID, sb.Name AS SourceBankName
         FROM tblTransaction tx
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
+        INNER JOIN tblInputFile inputFile ON inputFile.InputFileID = tx.InputFileID
+        LEFT JOIN tblSourceBank sb ON sb.SourceBankID = inputFile.SourceBankID
         WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
           AND TxDateTimestamp >= {date_start}
           AND TxDateTimestamp < {date_end}
@@ -353,7 +355,8 @@ class SqliteClient:
                     'MoneySpent': a[1],
                     'Timestamp': a[2],
                     'Memo': a[3],
-                    'ID': a[4]
+                    'ID': a[4],
+                    'SourceBankName': a[5]
                 } for a in results
             ]
         finally:
