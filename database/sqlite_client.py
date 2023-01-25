@@ -360,4 +360,14 @@ class SqliteClient:
             connection.wrap_it_up()
 
     def update_category(self, tx_id, category_id):
-        pass
+        sql = f"""
+        UPDATE tblTransaction 
+        SET TxCategoryID = {category_id}
+        WHERE TxID = {tx_id}
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()

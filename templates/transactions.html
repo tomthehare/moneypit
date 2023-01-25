@@ -35,8 +35,10 @@
 					<td>
 						<form action="/moneypit/transaction/category" method="post">
 							<select name="category-id" id="category-id">
-								{% for category in categories_list %}
-									<option value="{{category[0]}}">{{ category[1] }}</option>
+								{% for iterator_cat in categories_list %}
+									<option value="{{iterator_cat[0]}}"
+									{{ 'selected' if iterator_cat[1] == category else '' }}
+									>{{ iterator_cat[1] }}</option>
 								{% endfor %}
 							</select>
 							<input type="hidden" id="current-category" name="current-category" value="{{category}}">
