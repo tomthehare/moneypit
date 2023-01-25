@@ -291,10 +291,26 @@ class SqliteClient:
         if filter:
             sql = sql + f"WHERE Name = '{filter}'"
 
+        sql = sql + " ORDER BY Name ASC "
+
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)
             return connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+    def get_category_by_id(self, id):
+        sql = f"""
+                SELECT Name 
+                FROM tblCategory
+                WHERE CategoryID = {id}
+                """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return connection.get_results()[0][0]
         finally:
             connection.wrap_it_up()
 
@@ -312,7 +328,7 @@ class SqliteClient:
 
     def get_data_for_time_slice(self, date_start, date_end, category_filter = ''):
         sql = f"""
-        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw
+        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxID
         FROM tblTransaction tx
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
         WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
@@ -331,6 +347,17 @@ class SqliteClient:
             connection.execute_sql(sql)
             results = connection.get_results()
 
-            return [{'CategoryName': a[0], 'MoneySpent': a[1], 'Timestamp': a[2], 'Memo': a[3]} for a in results]
+            return [
+                {
+                    'CategoryName': a[0],
+                    'MoneySpent': a[1],
+                    'Timestamp': a[2],
+                    'Memo': a[3],
+                    'ID': a[4]
+                } for a in results
+            ]
         finally:
             connection.wrap_it_up()
+
+    def update_category(self, tx_id, category_id):
+        pass

@@ -31,6 +31,15 @@
 				{% endfor %}
 				</tr>
 
+				<tr>
+					<td>Total</td>
+					{% for date_key in heatmap_data_container.get_dates() %}
+					<td>
+					{{ heatmap_data_container.get_total_for_date(date_key) }}
+					</td>
+				{% endfor %}
+
+				</tr>
 			{%for cat in categories%}
 				<tr>
 					<td>{{cat}}</td>

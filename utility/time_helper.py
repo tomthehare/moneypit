@@ -21,6 +21,9 @@ def get_datetime_for_timestamp(timestamp) -> datetime:
 def get_timestamp_for_datekey(datekey):
     return int(datetime.strptime(datekey, '%Y-%m').timestamp())
 
+def get_datekey_for_timestamp(timestamp):
+    return datetime.fromtimestamp(timestamp).strftime("%Y-%m")
+
 def timestamp_now():
     return round(time.time())
 
@@ -32,5 +35,5 @@ def get_timestamp_year_integer(timestamp):
     dt_local = datetime.fromtimestamp(timestamp)
     return dt_local.strftime("%Y")
 
-def add_month(date_stamp) -> str:
-    return str(numpy.datetime64(date_stamp) + numpy.timedelta64(1, 'M'))
+def add_month(date_key, month_count = 1) -> str:
+    return str(numpy.datetime64(date_key) + numpy.timedelta64(month_count, 'M'))

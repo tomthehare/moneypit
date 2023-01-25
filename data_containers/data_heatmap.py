@@ -1,10 +1,11 @@
 import logging
 
 from data_containers.color import Color
+from utility.money_helper import format_money
 from utility.time_helper import get_datetime_for_timestamp, get_timestamp_month_integer, get_timestamp_year_integer
 import pandas
 
-MAX_LIGHTNESS = .4
+MAX_LIGHTNESS = .3
 
 class DataHeatmap:
 
@@ -21,19 +22,28 @@ class DataHeatmap:
     def get_rgb(self, date_key, cat):
         return self.by_category[cat][date_key].get_rgb_string()
 
+    def get_total_for_date(self, date_key):
+        category_data = self.the_matrix.get(date_key)
+
+        total = 0
+        for category in category_data:
+            total = total + category_data[category]
+
+        return format_money(abs(total))
+
     def init_from_raw(self, data, categories):
         logging.debug(str(categories))
 
         # Find min timestamp
         ts_min = None
         for datapoint in data:
-            if not ts_min or ts_min > datapoint['Timestamp']:
+            if ts_min is None or ts_min > datapoint['Timestamp']:
                 ts_min = datapoint['Timestamp']
 
         # Find max timestamp
         ts_max = None
         for datapoint in data:
-            if not ts_max or ts_max < datapoint['Timestamp']:
+            if ts_max is None or ts_max < datapoint['Timestamp']:
                 ts_max = datapoint['Timestamp']
 
         date_start = get_datetime_for_timestamp(ts_min)
@@ -89,10 +99,10 @@ class DataHeatmap:
             for date in self.by_category[cat]:
                 money_value = abs(self.the_matrix[date][cat])
                 entire_list.append(money_value)
-                if not small or money_value < small:
+                if small is None or money_value < small:
                     small = money_value
 
-                if not big or money_value > big:
+                if big is None or money_value > big:
                     big = money_value
 
             for date in self.by_category[cat]:
