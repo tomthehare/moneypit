@@ -11,3 +11,12 @@ class TimeObserver:
     @classmethod
     def get_now_date_string(cls):
         return datetime.date.today().strftime(TimeObserver.DATE_FORMAT)
+
+"""
+OCTOBER DATA POINTS:
+1666670400
+1664596800
+
+RANGE:
+1664596800 to 1667275200
+"""

@@ -316,13 +316,15 @@ class SqliteClient:
         FROM tblTransaction tx
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
         WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
-          AND TxDateTimestamp > {date_start}
-          AND TxDateTimestamp <= {date_end}
+          AND TxDateTimestamp >= {date_start}
+          AND TxDateTimestamp < {date_end}
           AND TxDenomination < 0
         """
 
         if category_filter != '':
             sql = sql + f" AND cat.Name = '{category_filter}'"
+
+        sql = sql + " ORDER BY TxDateTimestamp ASC"
 
         connection = ConnectionWrapper(self.database_name)
         try:

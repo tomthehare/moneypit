@@ -5,7 +5,7 @@ import pytz
 
 from data_containers.data_heatmap import DataHeatmap
 from utility.money_helper import format_money
-from utility.time_helper import format_timestamp_as_local, get_timestamp_for_datekey, add_month
+from utility.time_helper import format_timestamp, get_timestamp_for_datekey, add_month
 import coloredlogs, logging
 
 from database.sqlite_client import SqliteClient
@@ -43,8 +43,8 @@ def heatmap_months():
 
     return render_template(
             "heatmap.html",
-            date_start=format_timestamp_as_local(ts_start, "%B %d, %Y"),
-            date_end=format_timestamp_as_local(ts_end, "%B %d, %Y"),
+            date_start=format_timestamp(ts_start, "%B %d, %Y"),
+            date_end=format_timestamp(ts_end, "%B %d, %Y"),
             heatmap_data_container=heatmap_data_container,
             categories=sorted([a[1] for a in filtered_categories])
         )
@@ -61,13 +61,13 @@ def heatmap_month_transactions():
     results = db_client.get_data_for_time_slice(ts_start, ts_end, category)
 
     for result in results:
-        result['Timestamp'] = format_timestamp_as_local(result['Timestamp'], '%Y/%m/%d')
+        result['Timestamp'] = format_timestamp(result['Timestamp'], '%Y/%m/%d')
         result['MoneySpent'] = format_money(abs(result['MoneySpent']))
 
     return render_template(
             "transactions.html",
-            date_start=format_timestamp_as_local(ts_start, '%Y/%m/%d'),
-            date_end=format_timestamp_as_local(ts_end, '%Y/%m/%d'),
+            date_start=format_timestamp(ts_start, '%Y/%m/%d'),
+            date_end=format_timestamp(ts_end, '%Y/%m/%d'),
             data=results,
             category=category
         )
