@@ -6,3 +6,4 @@ flask
 json2html
 pytz
 python-dateutil
+pandas
