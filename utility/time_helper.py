@@ -37,3 +37,19 @@ def get_timestamp_year_integer(timestamp):
 
 def add_month(date_key, month_count = 1) -> str:
     return get_datekey_for_timestamp((get_datetime_for_timestamp(get_timestamp_for_datekey(date_key)) + relativedelta(months=month_count)).timestamp())
+
+def get_date_keys_for_timestamp_range(ts_start, ts_end):
+    date_key_start = get_datekey_for_timestamp(ts_start)
+    date_key_end = get_datekey_for_timestamp(ts_end)
+
+    return_range = []
+    iterator = date_key_start
+
+    # fill in the inbetween bits
+    while (iterator != date_key_end and get_timestamp_for_datekey(iterator) < get_timestamp_for_datekey(date_key_end)):
+        return_range.append(iterator)
+        iterator = add_month(iterator)
+
+    return_range.append(date_key_end)
+
+    return return_range

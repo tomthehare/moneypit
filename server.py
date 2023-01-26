@@ -71,8 +71,8 @@ def render_transactions_page(date_key, category):
 
     return render_template(
         "transactions.html",
-        date_start=format_timestamp(ts_start, '%Y/%m/%d'),
-        date_end=format_timestamp(ts_end, '%Y/%m/%d'),
+        date_start=format_timestamp(ts_start, "%B %d, %Y"),
+        date_end=format_timestamp(ts_end, "%B %d, %Y"),
         ts_start=ts_start,
         ts_end=ts_end,
         data=results,

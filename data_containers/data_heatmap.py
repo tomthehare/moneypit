@@ -2,8 +2,7 @@ import logging
 
 from data_containers.color import Color
 from utility.money_helper import format_money
-from utility.time_helper import get_datetime_for_timestamp, get_timestamp_month_integer, get_timestamp_year_integer
-import pandas
+from utility.time_helper import get_timestamp_month_integer, get_timestamp_year_integer, get_date_keys_for_timestamp_range
 
 MAX_LIGHTNESS = .3
 
@@ -46,21 +45,14 @@ class DataHeatmap:
             if ts_max is None or ts_max < datapoint['Timestamp']:
                 ts_max = datapoint['Timestamp']
 
-        date_start = get_datetime_for_timestamp(ts_min)
-        date_end = get_datetime_for_timestamp(ts_max)
-
-        month_range = pandas.date_range(
-            date_start.strftime('%Y-%m'),
-            date_end.strftime('%Y-%m'),
-            freq='MS'  # months?
-        ).tolist()
+        month_range = get_date_keys_for_timestamp_range(ts_min, ts_max)
 
         all_categories_dict = {}
         for cat in categories:
             all_categories_dict[cat[1]] = 0
 
-        for month in month_range:
-            year_and_month_key = month.strftime('%Y-%m')
+        for year_and_month_key in month_range:
+            # year_and_month_key = month.strftime('%Y-%m')
             if year_and_month_key not in self.the_matrix:
                 self.the_matrix[year_and_month_key] = all_categories_dict.copy()
 
