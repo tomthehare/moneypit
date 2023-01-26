@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import time
-import numpy
+from dateutil.relativedelta import relativedelta
 
 def format_timestamp(timestamp, format ="%Y/%m/%d %H:%M:%S"):
     if not timestamp:
@@ -36,4 +36,4 @@ def get_timestamp_year_integer(timestamp):
     return dt_local.strftime("%Y")
 
 def add_month(date_key, month_count = 1) -> str:
-    return str(numpy.datetime64(date_key) + numpy.timedelta64(month_count, 'M'))
+    return get_datekey_for_timestamp((get_datetime_for_timestamp(get_timestamp_for_datekey(date_key)) + relativedelta(months=month_count)).timestamp())
