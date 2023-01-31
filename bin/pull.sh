@@ -2,4 +2,4 @@
 
 git pull
 
-gpg --batch --output database/tx.db.gpg --symmetric database/tx.db
+gpg --batch --output database/tx.db --decrypt database/tx.db.gpg
