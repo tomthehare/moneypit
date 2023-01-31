@@ -333,7 +333,7 @@ class SqliteClient:
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
         INNER JOIN tblInputFile inputFile ON inputFile.InputFileID = tx.InputFileID
         LEFT JOIN tblSourceBank sb ON sb.SourceBankID = inputFile.SourceBankID
-        WHERE cat.Name NOT IN ('transfer', 'credit card payment', 'check')
+        WHERE cat.Name NOT IN ('transfer', 'credit card payment')
           AND TxDateTimestamp >= {date_start}
           AND TxDateTimestamp < {date_end}
           AND TxDenomination < 0

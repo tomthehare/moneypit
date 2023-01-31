@@ -24,7 +24,7 @@ _logger.addHandler(handler)
 
 coloredlogs.install(level='DEBUG')
 
-IGNORED_CATEGORIES = ['check']
+IGNORED_CATEGORIES = ['credit card payment', 'transfer']
 
 def get_adjusted_offset_seconds():
     now = datetime.now(pytz.timezone('America/New_York'))
