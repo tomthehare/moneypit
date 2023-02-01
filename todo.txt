@@ -1,13 +1,11 @@
-I would like a way to maintain the categories outside of the script.
-
-We need a page to drag and drop CSVs to be ingested.  Should load the data, then present a new page to get them assigned to categories.
-
-I would like to be able to run a make command to encrypt the database to be checked into git.  
+I would like to be able to run a make command to encrypt the database to be checked into git.
 
 When selecting a new category, it should also update it in the learning table so new charges get auto-reassigned as well.
 
 Month break out page for sorting by highest to lowest charges.
 
-Turn main.py into a class that can do the import of the file as an action.
+Fix bug where it shows amazon when the category doesnt get auto matched
 
-Render a page to display uncategorized files with their best guesses associated.  the user can hit the button to lock them in.
+I think it might be accepting transactions that were already present in the db.  see 1/17 college savings
+
+cancel peacock

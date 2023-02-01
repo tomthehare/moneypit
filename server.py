@@ -156,3 +156,20 @@ def save_categories():
         iter = iter + 1
 
     return heatmap_months()
+
+@app.route('/moneypit/categories', methods=["GET", "POST"])
+def manage_categories():
+
+    if request.method == 'POST':
+        category_input = request.form['category-input']
+
+        if category_input:
+            db_client.insert_category(category_input)
+
+    categories = db_client.get_categories()
+
+    return render_template(
+        "categories.html",
+        data=[a[1] for a in categories]
+    )
+
