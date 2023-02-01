@@ -24,9 +24,8 @@ class Parser:
         pass
 
     def load_file_contents(self, filepath):
-        with (open(filepath, 'r') as f):
+        with open(filepath, 'r') as f:
             return f.readlines()
-
 
 class CapitalOneParser(Parser):
 
