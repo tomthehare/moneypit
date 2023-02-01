@@ -2,8 +2,12 @@ from flask import Flask, request, render_template
 from datetime import datetime
 from json2html import *
 import pytz
+from flask_wtf import FlaskForm
+from wtforms import FileField, SubmitField
 
+from categories.categorizer import Categorizer
 from data_containers.data_heatmap import DataHeatmap
+from data_containers.input_file import InputFile
 from utility.money_helper import format_money
 from utility.time_helper import format_timestamp, get_timestamp_for_datekey, add_month, get_datekey_for_timestamp, \
     timestamp_now
@@ -13,6 +17,7 @@ from database.sqlite_client import SqliteClient
 from utility.time_observer import TimeObserver
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'supersecretkey'
 db_client = SqliteClient("database/tx.db")
 
 _logger = logging.getLogger('moneypit')
@@ -92,8 +97,62 @@ def change_tx_category():
 
     return render_transactions_page(date_key, current_category)
 
+class UploadFileForm(FlaskForm):
+    file = FileField('File')
+    submit = SubmitField('Upload file')
+
+@app.route('/moneypit/transaction/upload', methods=["POST", "GET"])
+def upload_file():
+    form = UploadFileForm()
+    if form.validate_on_submit():
+        file = form.file.data
+        filepath = '/tmp/' + file.filename
+        file.save(filepath)
+
+        input_file = InputFile(db_client)
+
+        input_file.insert_file(filepath)
+
+        return render_file_transactions_page()
+    return render_template("file_input.html", form=form)
+
+def render_file_transactions_page():
+    open_transactions = db_client.get_uncategorized_transactions()
+
+    categorizer = Categorizer(db_client)
+
+    open_transactions_categorized = []
+    for tx_id, denomination, memo, date, source in open_transactions:
+        category_guess = categorizer.guess_best_category(memo)
+
+        category_name = ''
+        if category_guess is not None:
+            category_name = category_guess['category_name']
+        open_transactions_categorized.append((tx_id, denomination, memo, date, source, category_name))
+
+    return render_template(
+        "resolve_categories.html",
+        open_txs=open_transactions_categorized,
+        categories_list=db_client.get_categories(),
+    )
+
+@app.route('/moneypit/transactions/uncategorized')
+def show_uncategorized_transactions():
+    return render_file_transactions_page()
 
 def get_filtered_categories():
     categories = db_client.get_categories()
 
     return [a for a in categories if a[1] not in IGNORED_CATEGORIES]
+
+@app.route('/moneypit/transactions/category', methods=['POST'])
+def save_categories():
+    category_ids = request.form.getlist('category-id')
+    tx_ids = request.form.getlist('tx-id')
+
+    iter = 0
+    while iter < len(category_ids):
+        db_client.update_category(int(tx_ids[iter]), int(category_ids[iter]))
+        iter = iter + 1
+
+    return heatmap_months()

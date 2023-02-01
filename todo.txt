@@ -7,3 +7,7 @@ I would like to be able to run a make command to encrypt the database to be chec
 When selecting a new category, it should also update it in the learning table so new charges get auto-reassigned as well.
 
 Month break out page for sorting by highest to lowest charges.
+
+Turn main.py into a class that can do the import of the file as an action.
+
+Render a page to display uncategorized files with their best guesses associated.  the user can hit the button to lock them in.

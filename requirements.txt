@@ -6,3 +6,5 @@ flask
 json2html
 pytz
 python-dateutil
+flask_wtf
+wtforms

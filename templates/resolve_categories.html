@@ -1,0 +1,63 @@
+
+<!DOCTYPE html><html>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Moneypit - Category Resolution</title>
+    <style>
+        h2 {text-align: center;}
+		th, td {
+		  padding: 15px;
+		}
+		table {
+			width: 60%;
+			margin: 0 auto;
+		}
+    </style>
+</head>
+<body>
+<h2 class="display-2">
+Category Resolution
+</h2>
+
+<div class="container-fluid">
+	<div class="row">
+		<div class="col-md-50">
+            <form action="/moneypit/transactions/category" method="post">
+                <table border="1px" class=".table">
+                    <tr>
+                        <th>Date</th>
+                        <th>Money Spent</th>
+                        <th>Memo</th>
+                        <th>Source</th>
+                        <th>Category</th>
+                    </tr>
+                    {% for tx_id, denomination, memo, date, source, category in open_txs %}
+                    <tr>
+                        <td>{{ date }}</td>
+                        <td>{{ denomination }}</td>
+                        <td>{{ memo }}</td>
+                        <td>{{ source }}</td>
+                        <td>
+                                <select name="category-id" id="category-id">
+                                    {% for iterator_cat in categories_list %}
+                                        <option value="{{iterator_cat[0]}}"
+                                        {{ 'selected' if iterator_cat[1] == category else '' }}
+                                        >{{ iterator_cat[1] }}</option>
+                                    {% endfor %}
+                                </select>
+                                <input type="hidden" id="current-category" name="current-category" value="{{category}}">
+                                <input type="hidden" id="tx-id" name="tx-id" value="{{tx_id}}" />
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                <input type="submit" value="Submit Categories" />
+            </form>
+		</div>
+	</div>
+</div>
+</body>
+</html>

@@ -245,10 +245,12 @@ class SqliteClient:
 
     def get_uncategorized_transactions(self):
         sql = f"""
-        SELECT TxID, TxDenomination, TxMemoRaw
+        SELECT TxID, TxDenomination, TxMemoRaw, TxDateHuman, sb.Name
         FROM tblTransaction tx
         INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
+        INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
         WHERE TxCategoryID IS NULL AND TxDenomination < 0
+        ORDER BY TxDateTimestamp ASC
         """
 
         connection = ConnectionWrapper(self.database_name)
