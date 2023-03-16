@@ -376,3 +376,25 @@ class SqliteClient:
             connection.execute_sql(sql)
         finally:
             connection.wrap_it_up()
+
+    def get_latest_source_dates(self):
+        sql = """
+        SELECT inputFile.InputFileID, sourceBank.Name, MAX(DateCreatedTimestamp) AS DateCreatedTimeStamp, DateCreatedHuman
+        FROM tblInputFile inputFile
+        INNER JOIN tblSourceBank sourceBank ON inputFile.SourceBankID = sourceBank.SourceBankID
+        GROUP BY sourceBank.Name
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+        return [
+            {
+                'source': a[1],
+                'latest_date': a[3]
+            } for a in results
+        ]

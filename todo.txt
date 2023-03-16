@@ -6,6 +6,9 @@ Month break out page for sorting by highest to lowest charges.
 
 Fix bug where it shows amazon when the category doesnt get auto matched
 
-I think it might be accepting transactions that were already present in the db.  see 1/17 college savings
+It's "working" - I think we might need to just need to do an inprocess check to see if a given [denom, memo, source, date]
+tuple exists in db or not.  A unique constraint exists, but it's including filename which did change.  This will happen again.
 
-cancel peacock
+Show the latest date on file for each category so we can grab new data.
+
+Show a report with mortgage, childcare, etc. removed for visualization purposes

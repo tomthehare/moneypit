@@ -103,6 +103,8 @@ class UploadFileForm(FlaskForm):
 
 @app.route('/moneypit/transaction/upload', methods=["POST", "GET"])
 def upload_file():
+    latest_source_dates = db_client.get_latest_source_dates()
+
     form = UploadFileForm()
     if form.validate_on_submit():
         file = form.file.data
@@ -114,7 +116,7 @@ def upload_file():
         input_file.insert_file(filepath)
 
         return render_file_transactions_page()
-    return render_template("file_input.html", form=form)
+    return render_template("file_input.html", form=form, latest_source_dates=latest_source_dates)
 
 def render_file_transactions_page():
     open_transactions = db_client.get_uncategorized_transactions()

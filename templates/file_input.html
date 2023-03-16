@@ -8,19 +8,38 @@
     <style>
         h2 {text-align: center;}
 		th, td {
+		  text-align: center;
 		  padding: 15px;
 		}
 		table {
-			width: 60%;
+			width: 80%;
 			margin: 0 auto;
 		}
     </style>
 </head>
 <body>
-  <form method="post" action='/moneypit/transaction/upload' enctype="multipart/form-data">
-      {{ form.hidden_tag() }}
-      {{ form.file() }}
-      {{ form.submit() }}
-  </form>
+  <div>
+      Last updated dates:
+      <br>
+      <table>
+          <tr>
+              <th>Source</th>
+              <th>Last Date</th>
+          </tr>
+        {% for source_data in latest_source_dates %}
+            <tr>
+                <td>{{ source_data['source'] }}</td>
+                <td>{{ source_data['latest_date'] }}</td>
+            </tr>
+        {% endfor %}
+      </table>
+  </div>
+    <div>
+          <form method="post" action='/moneypit/transaction/upload' enctype="multipart/form-data">
+              {{ form.hidden_tag() }}
+              {{ form.file() }}
+              {{ form.submit() }}
+          </form>
+    </div>
 </body>
 </html>
