@@ -30,6 +30,11 @@ _logger.addHandler(handler)
 coloredlogs.install(level='DEBUG')
 
 IGNORED_CATEGORIES = ['credit card payment', 'transfer']
+CORE_EXPENSE_CATEGORIES = [
+            'childcare',
+            'mortgage',
+            'insurance'
+        ]
 
 def get_adjusted_offset_seconds():
     now = datetime.now(pytz.timezone('America/New_York'))
@@ -37,12 +42,19 @@ def get_adjusted_offset_seconds():
 
 @app.route('/moneypit/heatmap/months')
 def heatmap_months():
+    exclude_core_expenses = request.args.get('core_expenses') == 'Exclude'
+    core_expense_qualifier = 'Include' if exclude_core_expenses else 'Exclude'
+
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
     ts_start = int(request.args.get('ts_start', get_timestamp_for_datekey(add_month(date_key_now, -6))))
     ts_end = int(request.args.get('ts_end',  get_timestamp_for_datekey(add_month(date_key_now, 1))))
 
-    filtered_categories = get_filtered_categories()
+    additional_ignored_categories = []
+    if exclude_core_expenses:
+        additional_ignored_categories = CORE_EXPENSE_CATEGORIES
+
+    filtered_categories = get_filtered_categories(additional_ignored_categories)
 
     logging.debug('looking up data with %d -> %d' % (ts_start, ts_end))
     results = db_client.get_data_for_time_slice(ts_start, ts_end)
@@ -55,7 +67,8 @@ def heatmap_months():
             date_start=format_timestamp(ts_start, "%B %d, %Y"),
             date_end=format_timestamp(ts_end, "%B %d, %Y"),
             heatmap_data_container=heatmap_data_container,
-            categories=sorted([a[1] for a in filtered_categories])
+            categories=sorted([a[1] for a in filtered_categories]),
+            core_expense_qualifier=core_expense_qualifier
         )
 
 @app.route('/moneypit/heatmap/transactions')
@@ -142,10 +155,13 @@ def render_file_transactions_page():
 def show_uncategorized_transactions():
     return render_file_transactions_page()
 
-def get_filtered_categories():
+def get_filtered_categories(additional_ignored_categories = None):
+    if not additional_ignored_categories:
+        additional_ignored_categories = []
+
     categories = db_client.get_categories()
 
-    return [a for a in categories if a[1] not in IGNORED_CATEGORIES]
+    return [a for a in categories if a[1] not in (IGNORED_CATEGORIES + additional_ignored_categories)]
 
 @app.route('/moneypit/transactions/category', methods=['POST'])
 def save_categories():
