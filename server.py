@@ -33,7 +33,8 @@ IGNORED_CATEGORIES = ['credit card payment', 'transfer']
 CORE_EXPENSE_CATEGORIES = [
             'childcare',
             'mortgage',
-            'insurance'
+            'insurance',
+            'renovation',
         ]
 
 def get_adjusted_offset_seconds():
