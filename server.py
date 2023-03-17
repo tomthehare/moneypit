@@ -48,8 +48,8 @@ def heatmap_months():
 
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
-    ts_start = int(request.args.get('ts_start', get_timestamp_for_datekey(add_month(date_key_now, -6))))
-    ts_end = int(request.args.get('ts_end',  get_timestamp_for_datekey(add_month(date_key_now, 1))))
+    ts_start = int(request.args.get(get_timestamp_for_datekey('ts_start'), get_timestamp_for_datekey(add_month(date_key_now, -6))))
+    ts_end = int(request.args.get(get_timestamp_for_datekey('ts_end'),  get_timestamp_for_datekey(add_month(date_key_now, 1))))
 
     additional_ignored_categories = []
     if exclude_core_expenses:

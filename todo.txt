@@ -1,7 +1,5 @@
 I would like to be able to run a make command to encrypt the database to be checked into git.
 
-When selecting a new category, it should also update it in the learning table so new charges get auto-reassigned as well.
-
 Month break out page for sorting by highest to lowest charges.
 
 Fix bug where it shows amazon when the category doesnt get auto matched
@@ -9,6 +7,6 @@ Fix bug where it shows amazon when the category doesnt get auto matched
 It's "working" - I think we might need to just need to do an inprocess check to see if a given [denom, memo, source, date]
 tuple exists in db or not.  A unique constraint exists, but it's including filename which did change.  This will happen again.
 
-Show the latest date on file for each category so we can grab new data.
+I would like to have a page that allows me to reassign the learned categories to a new category.
+Maybe also a way to find all transactions with a given category string and category to modify?
 
-Show a report with mortgage, childcare, etc. removed for visualization purposes
