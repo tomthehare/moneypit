@@ -379,9 +379,10 @@ class SqliteClient:
 
     def get_latest_source_dates(self):
         sql = """
-        SELECT inputFile.InputFileID, sourceBank.Name, MAX(DateCreatedTimestamp) AS DateCreatedTimeStamp, DateCreatedHuman
+        SELECT sourceBank.Name, MAX(TxDateTimestamp) AS DateCreatedTimeStamp, TxDateHuman AS DateCreatedHuman
         FROM tblInputFile inputFile
         INNER JOIN tblSourceBank sourceBank ON inputFile.SourceBankID = sourceBank.SourceBankID
+        INNER JOIN tblTransaction tx ON tx.InputFileID = inputFile.InputFileID
         GROUP BY sourceBank.Name
         """
 
