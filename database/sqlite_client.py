@@ -395,7 +395,7 @@ class SqliteClient:
 
         return [
             {
-                'source': a[1],
-                'latest_date': a[3]
+                'source': a[0],
+                'latest_date': a[2]
             } for a in results
         ]
