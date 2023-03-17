@@ -54,6 +54,14 @@
 							<input type="submit" value="Change Category" />
 						</form>
 					</td>
+					<td>
+						<form action="/moneypit/transaction/delete" method="post">
+							<input type="hidden" id="currentcategory" name="currentcategory" value="{{category}}">
+							<input type="hidden" id="txid" name="txid" value="{{datum['ID']}}" />
+							<input type="hidden" id="datekey" name="datekey" value="{{date_key}}" />
+							<input type="submit" value="Delete" />
+						</form>
+					</td>
 				</tr>
 				{% endfor %}
 			</table>

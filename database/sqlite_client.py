@@ -31,6 +31,7 @@ class SqliteClient:
     def __init__(self, database_name):
         self.database_name = database_name
         self.create_tables_if_not_exist()
+        self.run_migrations()
 
     def create_tables_if_not_exist(self):
         sql = """
@@ -129,6 +130,41 @@ class SqliteClient:
             print('Created tblCategoryMatchString')
 
         connection.wrap_it_up()
+
+    def run_migrations(self):
+
+        if 'DateDeleted' not in self.get_columns_for_table('tblTransaction'):
+            sql = """
+            ALTER TABLE tblTransaction
+            ADD COLUMN DateDeleted TEXT;
+            """
+            connection = ConnectionWrapper(self.database_name)
+            connection.execute_sql(sql)
+            connection.wrap_it_up()
+            print("Migrated tblTransaction.DateDeleted")
+
+
+
+    def get_columns_for_table(self, table_name):
+        sql = f"""
+        PRAGMA table_info({table_name});
+        """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+
+            if not results:
+                return None
+
+            columns = []
+            for row in results:
+                columns.append(row[1])
+
+            return columns
+        finally:
+            connection.wrap_it_up()
 
     def get_category_id(self, category_name):
         sql = f"""
@@ -249,7 +285,7 @@ class SqliteClient:
         FROM tblTransaction tx
         INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
         INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
-        WHERE TxCategoryID IS NULL AND TxDenomination < 0
+        WHERE TxCategoryID IS NULL AND TxDenomination < 0 AND tx.DateDeleted IS NULL
         ORDER BY TxDateTimestamp ASC
         """
 
@@ -339,6 +375,7 @@ class SqliteClient:
           AND TxDateTimestamp >= {date_start}
           AND TxDateTimestamp < {date_end}
           AND TxDenomination < 0
+          AND DateDeleted IS NULL
         """
 
         if category_filter != '':
@@ -383,6 +420,7 @@ class SqliteClient:
         FROM tblInputFile inputFile
         INNER JOIN tblSourceBank sourceBank ON inputFile.SourceBankID = sourceBank.SourceBankID
         INNER JOIN tblTransaction tx ON tx.InputFileID = inputFile.InputFileID
+        WHERE tx.DateDeleted IS NULL
         GROUP BY sourceBank.Name
         """
 
@@ -399,3 +437,16 @@ class SqliteClient:
                 'latest_date': a[2]
             } for a in results
         ]
+
+    def delete_transaction(self, tx_id):
+        sql = f"""
+                UPDATE tblTransaction 
+                SET DateDeleted = '{TimeObserver.get_now_date_string()}'
+                WHERE TxID = {tx_id};
+                """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()

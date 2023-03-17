@@ -111,6 +111,16 @@ def change_tx_category():
 
     return render_transactions_page(date_key, current_category)
 
+@app.route('/moneypit/transaction/delete', methods=["POST"])
+def delete_tx():
+    tx_id = request.form['txid']
+    date_key = request.form['datekey']
+    current_category = request.form['currentcategory']
+
+    db_client.delete_transaction(tx_id)
+
+    return render_transactions_page(date_key, current_category)
+
 class UploadFileForm(FlaskForm):
     file = FileField('File')
     submit = SubmitField('Upload file')
