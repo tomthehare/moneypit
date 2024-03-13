@@ -149,6 +149,30 @@ def upload_file():
         return render_file_transactions_page()
     return render_template("file_input.html", form=form, latest_source_dates=latest_source_dates)
 
+def render_uncategorized_transactions_group_page():
+    open_transactions = db_client.get_uncategorized_transactions()
+
+    categorizer = Categorizer(db_client)
+
+    transaction_group = []
+    if len(open_transactions) > 0:
+        first_memo = open_transactions[0][2]
+
+        # Find every other transaction that has the same memo
+        for tx_id, denomination, memo, date, source in open_transactions:
+            if memo == first_memo:
+                transaction_group.append((tx_id, denomination, memo, date, source))       
+            
+        category_guess = categorizer.guess_best_category(first_memo)
+
+    return render_template(
+        "resolve_category_group.html",
+        category_guess=category_guess,
+        transaction_group=transaction_group,
+        categories=db_client.get_categories(),
+    )
+
+
 def render_file_transactions_page():
     open_transactions = db_client.get_uncategorized_transactions()
 
@@ -168,6 +192,10 @@ def render_file_transactions_page():
         open_txs=open_transactions_categorized,
         categories_list=db_client.get_categories(),
     )
+
+@app.route('/moneypit/transactions/uncategorized/group'))
+def show_uncategorized_transactions_group():
+    return render_uncategorized_transactions_group_page()
 
 @app.route('/moneypit/transactions/uncategorized')
 def show_uncategorized_transactions():

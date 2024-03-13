@@ -45,6 +45,9 @@ class DataHeatmap:
             if ts_max is None or ts_max < datapoint['Timestamp']:
                 ts_max = datapoint['Timestamp']
 
+        if not ts_min and not ts_max:
+            return
+
         month_range = get_date_keys_for_timestamp_range(ts_min, ts_max)
 
         all_categories_dict = {}

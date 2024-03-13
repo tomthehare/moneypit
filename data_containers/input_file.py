@@ -17,6 +17,7 @@ class InputFile:
                 or 'capitalone' in filename \
                 or 'capital-one' in filename \
                 or '360performancesavings' in filename \
+                or 'l-tsharedchecking' in filename \
                 or '360checking' in filename:
             return CapitalOneParser(self.db_client)
         elif 'barclays' in filename or 'creditcard' in filename:
