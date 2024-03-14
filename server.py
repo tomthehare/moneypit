@@ -155,6 +155,7 @@ def render_uncategorized_transactions_group_page():
     categorizer = Categorizer(db_client)
 
     transaction_group = []
+    tx_ids = []
     if len(open_transactions) > 0:
         first_memo = open_transactions[0][2]
 
@@ -162,14 +163,17 @@ def render_uncategorized_transactions_group_page():
         for tx_id, denomination, memo, date, source in open_transactions:
             if memo == first_memo:
                 transaction_group.append((tx_id, denomination, memo, date, source))       
-            
+                tx_ids.append(tx_id)
+
         category_guess = categorizer.guess_best_category(first_memo)
+
 
     return render_template(
         "resolve_category_group.html",
         category_guess=category_guess,
         transaction_group=transaction_group,
         categories=db_client.get_categories(),
+        tx_ids=",".join(map(str, tx_ids))
     )
 
 
@@ -193,7 +197,7 @@ def render_file_transactions_page():
         categories_list=db_client.get_categories(),
     )
 
-@app.route('/moneypit/transactions/uncategorized/group'))
+@app.route('/moneypit/transactions/uncategorized/group')
 def show_uncategorized_transactions_group():
     return render_uncategorized_transactions_group_page()
 
@@ -213,13 +217,26 @@ def get_filtered_categories(additional_ignored_categories = None):
 def save_categories():
     category_ids = request.form.getlist('category-id')
     tx_ids = request.form.getlist('tx-id')
-
+    
     iter = 0
     while iter < len(category_ids):
         db_client.update_category(int(tx_ids[iter]), int(category_ids[iter]))
         iter = iter + 1
 
     return heatmap_months()
+
+@app.route('/moneypit/transaction-group/category', methods=['POST'])
+def save_category_for_tx_group():
+    category_id = request.form['category-id']
+    tx_ids = request.form['tx-ids'].split(',')
+
+    iter = 0
+    while iter < len(tx_ids):
+        db_client.update_category(int(tx_ids[iter]), int(category_id))
+        iter = iter + 1
+
+    return render_uncategorized_transactions_group_page()
+
 
 @app.route('/moneypit/categories', methods=["GET", "POST"])
 def manage_categories():
