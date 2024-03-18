@@ -11,7 +11,7 @@ from utility.time_observer import TimeObserver
 
 coloredlogs.install(level='DEBUG')
 
-db_client = SqliteClient('database/tx.db')
+db_client = SqliteClient('sqlite/tx.db')
 
 def get_input_files() -> list[str]:
     return [i.lower() for i in os.listdir('./input') if i.lower().endswith('.csv')]

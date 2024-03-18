@@ -4,3 +4,4 @@ database/tx.db
 .DS_Store
 venv/
 *.pyc
+sqlite/

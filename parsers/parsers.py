@@ -8,6 +8,7 @@ from utility.time_observer import TimeObserver
 CHASE = 1
 CAPITAL_ONE = 2
 BARCLAYS = 3
+AMERICAN_EXPRESS = 4
 
 coloredlogs.install(level='DEBUG')
 
@@ -188,3 +189,34 @@ class ChaseParser(Parser):
         tx_date = tx_date.strftime('%Y-%m-%d')
 
         return (tx_date, description, amount)
+
+class AmericanExpressParser(Parser):
+
+    def __init__(self, sqlite_client: SqliteClient):
+        Parser.__init__(self, AMERICAN_EXPRESS, sqlite_client)
+
+    def parse_line(self, line):
+        pass
+
+    def parse(self, filepath, file_id):
+        logging.info('American express processing: ' + filepath)
+
+        contents = self.load_file_contents(filepath)
+
+        for line in contents:
+            line = line.strip()
+            logging.debug('Loaded line: ' + line)
+            if self.is_ignored_line(line):
+                continue
+
+            (tx_date, description, amount) = self.parse_line(line)
+
+            self.sqlite_client.insert_transaction(
+                amount,
+                tx_date,
+                TimeObserver.get_timestamp_from_date_string(tx_date),
+                description,
+                file_id
+            )
+
+        Parser.parse(self, filepath, file_id)

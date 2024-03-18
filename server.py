@@ -18,7 +18,7 @@ from utility.time_observer import TimeObserver
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
-db_client = SqliteClient("database/tx.db")
+db_client = SqliteClient("sqlite/tx.db")
 
 _logger = logging.getLogger('moneypit')
 logFormatter = logging.Formatter("%(asctime)s [%(levelname)-5.5s]  %(message)s")
