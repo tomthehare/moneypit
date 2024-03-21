@@ -196,7 +196,29 @@ class AmericanExpressParser(Parser):
         Parser.__init__(self, AMERICAN_EXPRESS, sqlite_client)
 
     def parse_line(self, line):
-        pass
+        # 12/29/2022,12/30/2022,WHOLEFDS AVR 10371,Groceries,Sale,-99.28
+        (tx_date, description, amount) = line.split(',')
+
+        format = "%m/%d/%Y"
+        tx_date = datetime.datetime.strptime(tx_date, format)
+        tx_date = tx_date.strftime('%Y-%m-%d')
+
+        return (tx_date, description, amount)
+
+    def is_ignored_line(self, line):
+        if line == '':
+            return True
+
+        line = line.lower()
+        ignored_slugs = [
+            'date,description,amount'
+        ]
+
+        for ignored in ignored_slugs:
+            if ignored in line:
+                return True
+
+        return False
 
     def parse(self, filepath, file_id):
         logging.info('American express processing: ' + filepath)

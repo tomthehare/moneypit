@@ -32,6 +32,7 @@ exclude = *.swp
 exclude = node_modules
 exclude = .docker
 exclude = venv
+exclude = sqlite
 
 # To turn off "synchronization ding" sound, set the following to 1.
 nosound = 0

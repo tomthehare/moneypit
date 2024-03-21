@@ -5,3 +5,4 @@ database/tx.db
 venv/
 *.pyc
 sqlite/
+.realsync

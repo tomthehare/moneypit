@@ -62,12 +62,13 @@ class SqliteClient:
         source_bank_seed = [
           'Chase',
           'CapitalOne',
-          'Barclays'
+          'Barclays',
+          'AmericanExpress'
         ]
 
         for bank in source_bank_seed:
             connection.execute_sql('INSERT OR IGNORE INTO tblSourceBank (Name) VALUES (\'%s\');' % bank)
-            print('Added ' + bank + ' to database tblSourceBank')
+            print('Ensured that  ' + bank + ' was in tblSourceBank')
 
         if "tblCategory" not in tables:
             table_sql = """

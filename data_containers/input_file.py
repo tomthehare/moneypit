@@ -1,5 +1,5 @@
 from database.sqlite_client import SqliteClient
-from parsers.parsers import Parser, CapitalOneParser, BarclaysParser, ChaseParser
+from parsers.parsers import Parser, CapitalOneParser, BarclaysParser, ChaseParser, AmericanExpressParser
 from utility.time_observer import TimeObserver
 
 import coloredlogs, logging
@@ -24,6 +24,8 @@ class InputFile:
             return BarclaysParser(self.db_client)
         elif 'chase' in filename:
             return ChaseParser(self.db_client)
+        elif 'amex' in filename:
+            return AmericanExpressParser(self.db_client)
 
         raise Exception('No idea how to parse it: ' + filename)
 
