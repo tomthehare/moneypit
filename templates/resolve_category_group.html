@@ -8,6 +8,7 @@
     <title>Moneypit - Category Resolution</title>
     <style>
         h2 {text-align: center;}
+        h4 {text-align: center;}
 		th, td {
 		  padding: 15px;
 		}
@@ -21,6 +22,15 @@
 <h2 class="display-2">
 Category Group Resolution
 </h2>
+<h4>
+	<a href="/moneypit/categories">Manage Categories</a> |
+	<a href="/moneypit/heatmap/months">Heatmap</a>
+</h4>
+
+
+<h3>
+    {{ total_remaining }} uncategorized transactions remaining.
+</h3>
 
 <div class="container-fluid">
 	<div class="row">
@@ -28,6 +38,7 @@ Category Group Resolution
             <form action="/moneypit/transaction-group/category" method="post">
 			<select name="category-id" id="category-id">
 			    {% for iterator_cat in categories %}
+                {{ category_guess }}
 				<option value="{{iterator_cat[0]}}"
 				{{ 'selected' if iterator_cat[1] == category_guess else '' }}
 				>{{ iterator_cat[1] }}</option>

@@ -44,6 +44,8 @@ class Categorizer:
             'wf wayfair': 'home improvement',
             'target': 'target',
             'kindle svcs': 'recreation',
+            'starbucks store': 'coffee',
+            'hannaford': 'groceries'
         }
 
         for key in mappings_in_code:

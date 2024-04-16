@@ -297,6 +297,33 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
+    def get_transaction(self, tx_id):
+        sql = f"""
+                SELECT TxID AS txID, TxDenomination as denomination, TxMemoRaw as memo, TxDateHuman as dateHuman, sb.Name as bankName
+                FROM tblTransaction tx
+                INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
+                INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
+                WHERE TxID = {int(tx_id)}
+                
+                """
+
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+            if results:
+                return {
+                    'txID': results[0][0],
+                    'denomination': results[0][1],
+                    'memo': results[0][2],
+                    'dateHuman': results[0][3],
+                    'bankName': results[0][4]
+                }
+            else:
+                return []
+        finally:
+            connection.wrap_it_up()
+
     def get_memos_to_categories(self):
         sql = f"""
         SELECT cms.CategoryID, cat.Name AS CategoryName, MatchString
@@ -313,7 +340,7 @@ class SqliteClient:
 
     def insert_memo_to_category(self, memo, category_id):
         sql = f"""
-        INSERT OR IGNORE INTO tblCategoryMatchString (CategoryID, MatchString) VALUES ({category_id}, '{memo}');
+        INSERT OR IGNORE INTO tblCategoryMatchString (CategoryID, MatchString) VALUES ({int(category_id)}, '{memo}');
         """
         connection = ConnectionWrapper(self.database_name)
         try:

@@ -156,24 +156,31 @@ def render_uncategorized_transactions_group_page():
 
     transaction_group = []
     tx_ids = []
+    category_name = ''
+    category_guess = None
+    total_remaining = len(open_transactions)
     if len(open_transactions) > 0:
         first_memo = open_transactions[0][2]
 
         # Find every other transaction that has the same memo
         for tx_id, denomination, memo, date, source in open_transactions:
             if memo == first_memo:
-                transaction_group.append((tx_id, denomination, memo, date, source))       
+                transaction_group.append((tx_id, denomination, memo, date, source))
                 tx_ids.append(tx_id)
 
         category_guess = categorizer.guess_best_category(first_memo)
+        _logger.info('Guessed category for group: ' + str(category_guess))
 
+    if category_guess:
+        category_name = category_guess['category_name']
 
     return render_template(
         "resolve_category_group.html",
-        category_guess=category_guess,
+        category_guess=category_name,
         transaction_group=transaction_group,
         categories=db_client.get_categories(),
-        tx_ids=",".join(map(str, tx_ids))
+        tx_ids=",".join(map(str, tx_ids)),
+        total_remaining=total_remaining
     )
 
 
@@ -234,6 +241,13 @@ def save_category_for_tx_group():
     while iter < len(tx_ids):
         db_client.update_category(int(tx_ids[iter]), int(category_id))
         iter = iter + 1
+
+    # Find the category string since all we received was a transaction ID
+    tx_data = db_client.get_transaction(tx_ids[0])
+    memo = tx_data['memo']
+
+    # Make note of it for the future so it will show up next time
+    db_client.insert_memo_to_category(memo, category_id)
 
     return render_uncategorized_transactions_group_page()
 
