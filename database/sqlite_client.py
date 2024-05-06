@@ -26,6 +26,7 @@ class ConnectionWrapper:
         self._cursor.close()
         self._connection.close()
 
+
 class SqliteClient:
 
     def __init__(self, database_name):
@@ -47,7 +48,6 @@ class SqliteClient:
         for result in results:
             tables.append(result[0])
 
-        
         if "tblSourceBank" not in tables:
             table_sql = """
                  CREATE TABLE tblSourceBank (
@@ -57,18 +57,15 @@ class SqliteClient:
             );
             """
             connection.execute_sql(table_sql)
-            print('Created tblSourceBank')
+            print("Created tblSourceBank")
 
-        source_bank_seed = [
-          'Chase',
-          'CapitalOne',
-          'Barclays',
-          'AmericanExpress'
-        ]
+        source_bank_seed = ["Chase", "CapitalOne", "Barclays", "AmericanExpress"]
 
         for bank in source_bank_seed:
-            connection.execute_sql('INSERT OR IGNORE INTO tblSourceBank (Name) VALUES (\'%s\');' % bank)
-            print('Ensured that  ' + bank + ' was in tblSourceBank')
+            connection.execute_sql(
+                "INSERT OR IGNORE INTO tblSourceBank (Name) VALUES ('%s');" % bank
+            )
+            print("Ensured that  " + bank + " was in tblSourceBank")
 
         if "tblCategory" not in tables:
             table_sql = """
@@ -79,7 +76,7 @@ class SqliteClient:
             );
             """
             connection.execute_sql(table_sql)
-            print('Created tblCategory')
+            print("Created tblCategory")
 
         if "tblInputFile" not in tables:
             table_sql = """
@@ -95,7 +92,7 @@ class SqliteClient:
             );
             """
             connection.execute_sql(table_sql)
-            print('Created tblInputFile')
+            print("Created tblInputFile")
 
         if "tblTransaction" not in tables:
             table_sql = """
@@ -114,7 +111,7 @@ class SqliteClient:
             );
             """
             connection.execute_sql(table_sql)
-            print('Created tblTransaction')
+            print("Created tblTransaction")
 
         if "tblCategoryMatchString" not in tables:
             table_sql = """
@@ -128,13 +125,13 @@ class SqliteClient:
             );
             """
             connection.execute_sql(table_sql)
-            print('Created tblCategoryMatchString')
+            print("Created tblCategoryMatchString")
 
         connection.wrap_it_up()
 
     def run_migrations(self):
 
-        if 'DateDeleted' not in self.get_columns_for_table('tblTransaction'):
+        if "DateDeleted" not in self.get_columns_for_table("tblTransaction"):
             sql = """
             ALTER TABLE tblTransaction
             ADD COLUMN DateDeleted TEXT;
@@ -143,8 +140,6 @@ class SqliteClient:
             connection.execute_sql(sql)
             connection.wrap_it_up()
             print("Migrated tblTransaction.DateDeleted")
-
-
 
     def get_columns_for_table(self, table_name):
         sql = f"""
@@ -197,9 +192,11 @@ class SqliteClient:
         try:
             connection.execute_sql(sql)
         finally:
-           connection.wrap_it_up()
+            connection.wrap_it_up()
 
-    def insert_input_file(self, source_bank_id, date_created_timestamp, human_date_created, file_name):
+    def insert_input_file(
+        self, source_bank_id, date_created_timestamp, human_date_created, file_name
+    ):
         sql = f"""
         INSERT OR IGNORE INTO tblInputFile (
             SourceBankID,
@@ -240,8 +237,10 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-    def insert_transaction(self, denomination, date_human, date_timestamp, memo_raw, file_id):
-        memo_raw = memo_raw.replace('\'', '')
+    def insert_transaction(
+        self, denomination, date_human, date_timestamp, memo_raw, file_id
+    ):
+        memo_raw = memo_raw.replace("'", "")
 
         sql = f"""
         INSERT OR IGNORE INTO tblTransaction(
@@ -266,7 +265,9 @@ class SqliteClient:
             connection.wrap_it_up()
 
     def set_processed_success_date(self, file_id):
-        now_timestamp = TimeObserver.get_timestamp_from_date_string(TimeObserver.get_now_date_string())
+        now_timestamp = TimeObserver.get_timestamp_from_date_string(
+            TimeObserver.get_now_date_string()
+        )
 
         sql = f"""
             UPDATE tblInputFile
@@ -286,7 +287,7 @@ class SqliteClient:
         FROM tblTransaction tx
         INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
         INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
-        WHERE TxCategoryID IS NULL AND TxDenomination < 0 AND tx.DateDeleted IS NULL
+        WHERE TxCategoryID IS NULL AND tx.DateDeleted IS NULL
         ORDER BY TxDateTimestamp ASC
         """
 
@@ -313,11 +314,11 @@ class SqliteClient:
             results = connection.get_results()
             if results:
                 return {
-                    'txID': results[0][0],
-                    'denomination': results[0][1],
-                    'memo': results[0][2],
-                    'dateHuman': results[0][3],
-                    'bankName': results[0][4]
+                    "txID": results[0][0],
+                    "denomination": results[0][1],
+                    "memo": results[0][2],
+                    "dateHuman": results[0][3],
+                    "bankName": results[0][4],
                 }
             else:
                 return []
@@ -348,7 +349,7 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-    def get_categories(self, filter = ''):
+    def get_categories(self, filter=""):
         sql = f"""
         SELECT CategoryID, Name 
         FROM tblCategory
@@ -392,7 +393,7 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-    def get_data_for_time_slice(self, date_start, date_end, category_filter = ''):
+    def get_data_for_time_slice(self, date_start, date_end, category_filter=""):
         sql = f"""
         SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxID, sb.Name AS SourceBankName
         FROM tblTransaction tx
@@ -402,11 +403,10 @@ class SqliteClient:
         WHERE cat.Name NOT IN ('transfer', 'credit card payment')
           AND TxDateTimestamp >= {date_start}
           AND TxDateTimestamp < {date_end}
-          AND TxDenomination < 0
           AND DateDeleted IS NULL
         """
 
-        if category_filter != '':
+        if category_filter != "":
             sql = sql + f" AND cat.Name = '{category_filter}'"
 
         sql = sql + " ORDER BY TxDateTimestamp ASC"
@@ -418,13 +418,14 @@ class SqliteClient:
 
             return [
                 {
-                    'CategoryName': a[0],
-                    'MoneySpent': a[1],
-                    'Timestamp': a[2],
-                    'Memo': a[3],
-                    'ID': a[4],
-                    'SourceBankName': a[5]
-                } for a in results
+                    "CategoryName": a[0],
+                    "MoneySpent": a[1],
+                    "Timestamp": a[2],
+                    "Memo": a[3],
+                    "ID": a[4],
+                    "SourceBankName": a[5],
+                }
+                for a in results
             ]
         finally:
             connection.wrap_it_up()
@@ -459,12 +460,7 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
-        return [
-            {
-                'source': a[0],
-                'latest_date': a[2]
-            } for a in results
-        ]
+        return [{"source": a[0], "latest_date": a[2]} for a in results]
 
     def delete_transaction(self, tx_id):
         sql = f"""

@@ -1,10 +1,12 @@
 import colorsys
 import logging
 
+
 class Color:
 
-    RED = 'FF0000'
-    WHITE = 'FFFFFF'
+    RED = "FF0000"
+    WHITE = "FFFFFF"
+    GREEN = "00FF00"
 
     def __init__(self, hex):
         self.red = hex[0:2]
@@ -24,27 +26,29 @@ class Color:
 
     def set_lightness(self, lightness):
         self.lightness = lightness
-        self.set_rgb() # recompute based on new lightness
+        self.set_rgb()  # recompute based on new lightness
 
     def set_rgb(self):
-        (red, green, blue) = colorsys.hls_to_rgb(self.hue, self.lightness, self.saturation)
+        (red, green, blue) = colorsys.hls_to_rgb(
+            self.hue, self.lightness, self.saturation
+        )
 
-        self.red = hex(int(255 * red)).replace('0x', '')
-        self.green = hex(int(255 * green)).replace('0x', '')
-        self.blue = hex(int(255 * blue)).replace('0x', '')
+        self.red = hex(int(255 * red)).replace("0x", "")
+        self.green = hex(int(255 * green)).replace("0x", "")
+        self.blue = hex(int(255 * blue)).replace("0x", "")
 
         if len(self.red) == 1:
-            self.red = '0' + self.red
+            self.red = "0" + self.red
 
         if len(self.green) == 1:
-            self.green = '0' + self.green
+            self.green = "0" + self.green
 
         if len(self.blue) == 1:
-            self.blue = '0' + self.blue
+            self.blue = "0" + self.blue
 
     def set_hsl(self):
         (self.hue, self.lightness, self.saturation) = colorsys.rgb_to_hls(
             self.convert_hex_to_float(self.red),
             self.convert_hex_to_float(self.green),
-            self.convert_hex_to_float(self.blue)
+            self.convert_hex_to_float(self.blue),
         )

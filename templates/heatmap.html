@@ -45,20 +45,37 @@
 				</tr>
 
 				<tr>
+					<td>Surplusses</td>
+				{% for date_key in heatmap_data_container.get_dates() %}
+					<td>
+					{{ heatmap_data_container.get_total_for_date(date_key, only_positive=True) }}
+					</td>
+				{% endfor %}
+				</tr>
+
+				<tr>
+					<td>Deficits</td>
+				{% for date_key in heatmap_data_container.get_dates() %}
+					<td>
+					{{ heatmap_data_container.get_total_for_date(date_key, only_negative=True) }}
+					</td>
+				{% endfor %}
+				</tr>
+
+				<tr>
 					<td>Total</td>
-					{% for date_key in heatmap_data_container.get_dates() %}
+				{% for date_key in heatmap_data_container.get_dates() %}
 					<td>
 					{{ heatmap_data_container.get_total_for_date(date_key) }}
 					</td>
 				{% endfor %}
-
 				</tr>
 			{%for cat in categories%}
 				<tr>
 					<td>{{cat}}</td>
 					{% for date_key in heatmap_data_container.get_dates() %}
 						<td bgcolor="{{ heatmap_data_container.get_rgb(date_key, cat) }}">
-							<a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">{{  "${:,.2f}".format(heatmap_data_container.get_value(date_key, cat)) }}</a>
+							<a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">{{  "{:,.2f}".format(heatmap_data_container.get_value(date_key, cat)) }}</a>
 						</td>
 					{% endfor %}
 				</tr>

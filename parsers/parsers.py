@@ -1,5 +1,6 @@
 import coloredlogs, logging
 import datetime
+import re
 
 from categories.categorizer import Categorizer
 from database.sqlite_client import SqliteClient
@@ -10,7 +11,8 @@ CAPITAL_ONE = 2
 BARCLAYS = 3
 AMERICAN_EXPRESS = 4
 
-coloredlogs.install(level='DEBUG')
+coloredlogs.install(level="DEBUG")
+
 
 class Parser:
 
@@ -25,8 +27,28 @@ class Parser:
         pass
 
     def load_file_contents(self, filepath):
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             return f.readlines()
+
+    def replace_commas_between_quotes(self, text):
+        # I was having a really hard time doing this with regex, so doing it the old fashioned way
+        new_string = ""
+        opening_index = -1
+        for index in range(0, len(text)):
+            new_character = text[index]
+            if text[index] == '"':
+                if opening_index <= 0:
+                    opening_index = index
+                else:
+                    opening_index = -1
+
+            if text[index] == "," and opening_index >= 0:
+                new_character = ""
+
+            new_string = new_string + new_character
+
+        return new_string
+
 
 class CapitalOneParser(Parser):
 
@@ -34,12 +56,12 @@ class CapitalOneParser(Parser):
         Parser.__init__(self, CAPITAL_ONE, sqlite_client)
 
     def parse(self, filepath, file_id):
-        logging.info('CapitalOne processing: ' + filepath)
+        logging.info("CapitalOne processing: " + filepath)
         contents = self.load_file_contents(filepath)
 
         for line in contents:
             line = line.strip()
-            logging.debug('Loaded line: ' + line)
+            logging.debug("Loaded line: " + line)
             if self.is_ignored_line(line):
                 continue
 
@@ -50,18 +72,19 @@ class CapitalOneParser(Parser):
                 tx_date,
                 TimeObserver.get_timestamp_from_date_string(tx_date),
                 description,
-                file_id
+                file_id,
             )
 
         Parser.parse(self, filepath, file_id)
 
     def is_ignored_line(self, line):
-        if line == '':
+        if line == "":
             return True
 
         line = line.lower()
         ignored_slugs = [
-            'account number,transaction date,transaction amount'
+            "account number,transaction date,transaction amount",
+            "account number,transaction description,transaction date,transaction type,transaction amount,balance",
         ]
 
         for ignored in ignored_slugs:
@@ -71,12 +94,23 @@ class CapitalOneParser(Parser):
         return False
 
     def parse_line(self, line):
+        line = self.replace_commas_between_quotes(line)
+        logging.debug("New line: %s" % line)
+
+        # Account Number,Transaction Description,Transaction Date,Transaction Type,Transaction Amount,Balance
         # 5279,12/31/22,360.47,Credit,Monthly Interest Paid,136065.38
-        (account_number, tx_date, amount, descriptor, description, balance) = line.split(',')
+        # (account_number, tx_date, amount, descriptor, description, balance) = (
+        (account_number, description, tx_date, tx_type, amount, balance) = line.split(
+            ","
+        )
+
+        # CapitalOne uses tx types of debit and credit.  Let's use this to set the sign on the amount.
+        if tx_type.lower() == "debit":
+            amount = float(amount) * -1
 
         format = "%m/%d/%y"
         tx_date = datetime.datetime.strptime(tx_date, format)
-        tx_date = tx_date.strftime('%Y-%m-%d')
+        tx_date = tx_date.strftime("%Y-%m-%d")
 
         return (tx_date, description, amount)
 
@@ -87,13 +121,13 @@ class BarclaysParser(Parser):
         Parser.__init__(self, BARCLAYS, sql_client)
 
     def parse(self, filepath, file_id):
-        logging.info('Barclays processing: ' + filepath)
+        logging.info("Barclays processing: " + filepath)
 
         contents = self.load_file_contents(filepath)
 
         for line in contents:
             line = line.strip()
-            logging.debug('Loaded line: ' + line)
+            logging.debug("Loaded line: " + line)
             if self.is_ignored_line(line):
                 continue
 
@@ -104,21 +138,21 @@ class BarclaysParser(Parser):
                 tx_date,
                 TimeObserver.get_timestamp_from_date_string(tx_date),
                 description,
-                file_id
+                file_id,
             )
 
         Parser.parse(self, filepath, file_id)
 
     def is_ignored_line(self, line):
-        if line == '':
+        if line == "":
             return True
 
         line = line.lower()
         ignored_slugs = [
-            'barclays bank delaware',
-            'account number:',
-            'account balance as of',
-            'transaction date,description,category,amount'
+            "barclays bank delaware",
+            "account number:",
+            "account balance as of",
+            "transaction date,description,category,amount",
         ]
 
         for ignored in ignored_slugs:
@@ -128,11 +162,13 @@ class BarclaysParser(Parser):
         return False
 
     def parse_line(self, line):
-        (tx_date, description, category, amount) = line.split(',')
+        line = self.replace_commas_between_quotes(line)
+
+        (tx_date, description, category, amount) = line.split(",")
 
         format = "%m/%d/%Y"
         tx_date = datetime.datetime.strptime(tx_date, format)
-        tx_date = tx_date.strftime('%Y-%m-%d')
+        tx_date = tx_date.strftime("%Y-%m-%d")
 
         return (tx_date, description, amount)
 
@@ -143,13 +179,13 @@ class ChaseParser(Parser):
         Parser.__init__(self, CHASE, sqlite_client)
 
     def parse(self, filepath, file_id):
-        logging.info('Chase processing: ' + filepath)
+        logging.info("Chase processing: " + filepath)
 
         contents = self.load_file_contents(filepath)
 
         for line in contents:
             line = line.strip()
-            logging.debug('Loaded line: '  + line)
+            logging.debug("Loaded line: " + line)
             if self.is_ignored_line(line):
                 continue
 
@@ -160,18 +196,18 @@ class ChaseParser(Parser):
                 tx_date,
                 TimeObserver.get_timestamp_from_date_string(tx_date),
                 description,
-                file_id
+                file_id,
             )
 
         Parser.parse(self, filepath, file_id)
 
     def is_ignored_line(self, line):
-        if line == '':
+        if line == "":
             return True
 
         line = line.lower()
         ignored_slugs = [
-            'transaction date,post date,description,category,type,amount,memo'
+            "transaction date,post date,description,category,type,amount,memo"
         ]
 
         for ignored in ignored_slugs:
@@ -181,14 +217,25 @@ class ChaseParser(Parser):
         return False
 
     def parse_line(self, line):
+        line = self.replace_commas_between_quotes(line)
+
         # 12/29/2022,12/30/2022,WHOLEFDS AVR 10371,Groceries,Sale,-99.28
-        (tx_date, post_date, description, category, descriptor, amount, emptysomething) = line.split(',')
+        (
+            tx_date,
+            post_date,
+            description,
+            category,
+            descriptor,
+            amount,
+            emptysomething,
+        ) = line.split(",")
 
         format = "%m/%d/%Y"
         tx_date = datetime.datetime.strptime(tx_date, format)
-        tx_date = tx_date.strftime('%Y-%m-%d')
+        tx_date = tx_date.strftime("%Y-%m-%d")
 
         return (tx_date, description, amount)
+
 
 class AmericanExpressParser(Parser):
 
@@ -196,22 +243,25 @@ class AmericanExpressParser(Parser):
         Parser.__init__(self, AMERICAN_EXPRESS, sqlite_client)
 
     def parse_line(self, line):
-        # 12/29/2022,12/30/2022,WHOLEFDS AVR 10371,Groceries,Sale,-99.28
-        (tx_date, description, amount) = line.split(',')
+        line = self.replace_commas_between_quotes(line)
+
+        # Date,Description,Card Member,Account #,Amount
+        (tx_date, description, card_member, account_id, amount) = line.split(",")
 
         format = "%m/%d/%Y"
         tx_date = datetime.datetime.strptime(tx_date, format)
-        tx_date = tx_date.strftime('%Y-%m-%d')
+        tx_date = tx_date.strftime("%Y-%m-%d")
 
         return (tx_date, description, amount)
 
     def is_ignored_line(self, line):
-        if line == '':
+        if line == "":
             return True
 
         line = line.lower()
         ignored_slugs = [
-            'date,description,amount'
+            "date,description,amount",
+            "date,description,card member,account #,amount",
         ]
 
         for ignored in ignored_slugs:
@@ -221,24 +271,28 @@ class AmericanExpressParser(Parser):
         return False
 
     def parse(self, filepath, file_id):
-        logging.info('American express processing: ' + filepath)
+        logging.info("American express processing: " + filepath)
 
         contents = self.load_file_contents(filepath)
 
         for line in contents:
             line = line.strip()
-            logging.debug('Loaded line: ' + line)
+            logging.debug("Loaded line: " + line)
             if self.is_ignored_line(line):
                 continue
 
+            # Date,Description,Card Member,Account #,Amount
             (tx_date, description, amount) = self.parse_line(line)
+
+            # AMEX does balances differently from other providers - positive amounts are actually charges
+            amount = float(amount) * -1
 
             self.sqlite_client.insert_transaction(
                 amount,
                 tx_date,
                 TimeObserver.get_timestamp_from_date_string(tx_date),
                 description,
-                file_id
+                file_id,
             )
 
         Parser.parse(self, filepath, file_id)
