@@ -246,7 +246,12 @@ class AmericanExpressParser(Parser):
         line = self.replace_commas_between_quotes(line)
 
         # Date,Description,Card Member,Account #,Amount
-        (tx_date, description, card_member, account_id, amount) = line.split(",")
+        split_parts = line.split(",")
+
+        if len(split_parts) == 5:
+            (tx_date, description, card_member, account_id, amount) = split_parts
+        else:
+            (tx_date, description, amount) = split_parts
 
         format = "%m/%d/%Y"
         tx_date = datetime.datetime.strptime(tx_date, format)
