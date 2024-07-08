@@ -24,7 +24,7 @@ class InputFile:
             return BarclaysParser(self.db_client)
         elif 'chase' in filename:
             return ChaseParser(self.db_client)
-        elif 'amex' in filename:
+        elif 'amex' in filename or 'americanexpress' in filename:
             return AmericanExpressParser(self.db_client)
 
         raise Exception('No idea how to parse it: ' + filename)
