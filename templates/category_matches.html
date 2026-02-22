@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Category Matches{% endblock %}
+{% block page_title %}Category Match Strings{% endblock %}
+
+{% block header_actions %}
+<a href="/moneypit/categories"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+  </svg>
+  Manage Categories
+</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- Add new rule card -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden mb-8">
+  <div class="px-5 py-4 border-b border-gray-800">
+    <h2 class="text-sm font-semibold text-gray-200">Add Match Rule</h2>
+    <p class="text-xs text-gray-500 mt-0.5">
+      The rule will be saved and immediately applied to any existing transactions whose memo matches.
+    </p>
+  </div>
+  <div class="p-5">
+    <form action="/moneypit/categories/matches/add" method="post"
+          class="flex items-end gap-3">
+      <div class="flex-1">
+        <label for="match-string" class="block text-xs font-medium text-gray-400 mb-1.5">
+          Memo string to match <span class="text-gray-600">(exact, case-insensitive)</span>
+        </label>
+        <input type="text" id="match-string" name="match-string"
+               placeholder="e.g. WHOLEFDS ABC 12345"
+               required
+               class="w-full bg-gray-800 border border-gray-700 text-gray-100 text-sm rounded-lg
+                      px-3 py-2.5 placeholder-gray-600
+                      focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+      </div>
+      <div class="w-56">
+        <label for="add-category-id" class="block text-xs font-medium text-gray-400 mb-1.5">
+          Category
+        </label>
+        <select id="add-category-id" name="category-id"
+                class="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg
+                       px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+          {% for cat_id, cat_name in categories %}
+          <option value="{{ cat_id }}">{{ cat_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit"
+              class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                     rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500
+                     focus:ring-offset-2 focus:ring-offset-gray-900 whitespace-nowrap">
+        Add &amp; Apply
+      </button>
+    </form>
+  </div>
+</div>
+
+<p class="text-sm text-gray-400 mb-5">
+  Each row is a memo string mapped to a category. Reassigning updates the rule
+  <em>and</em> backfills all existing transactions whose memo matches that string.
+</p>
+
+{% if groups %}
+<div class="space-y-6">
+  {% for category_name, entries in groups.items() %}
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+
+    <!-- Category header -->
+    <div class="px-5 py-3 border-b border-gray-800 flex items-center gap-3">
+      <h2 class="text-sm font-semibold text-gray-100">{{ category_name }}</h2>
+      <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+        {{ entries | length }} rule{% if entries | length != 1 %}s{% endif %}
+      </span>
+    </div>
+
+    <!-- Rules table -->
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-1/2">Match String</th>
+          <th class="text-center px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-28">Transactions</th>
+          <th class="px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Reassign To</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800/60">
+        {% for entry in entries %}
+        <tr class="hover:bg-gray-800/30 transition-colors group">
+
+          <!-- Match string -->
+          <td class="px-5 py-3 font-mono text-xs text-gray-200 max-w-sm truncate">
+            {{ entry.match_string }}
+          </td>
+
+          <!-- Tx count -->
+          <td class="px-5 py-3 text-center">
+            {% if entry.tx_count > 0 %}
+            <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold
+                         bg-brand-900/40 text-brand-300 border border-brand-800/40">
+              {{ entry.tx_count }}
+            </span>
+            {% else %}
+            <span class="text-gray-600 text-xs">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Reassign form -->
+          <td class="px-5 py-3">
+            <form action="/moneypit/categories/matches/reassign" method="post"
+                  class="flex items-center gap-2">
+              <input type="hidden" name="match-id" value="{{ entry.match_id }}">
+              <select name="new-category-id"
+                      class="bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-2 py-1.5
+                             focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent flex-1">
+                {% for cat_id, cat_name in categories %}
+                <option value="{{ cat_id }}"
+                  {{ 'selected' if cat_id == entry.category_id else '' }}>
+                  {{ cat_name }}
+                </option>
+                {% endfor %}
+              </select>
+              <button type="submit"
+                      class="px-3 py-1.5 bg-gray-700 hover:bg-brand-600 text-gray-300 hover:text-white
+                             text-xs font-medium rounded-lg transition-colors whitespace-nowrap
+                             opacity-60 group-hover:opacity-100">
+                {% if entry.tx_count > 0 %}
+                  Reassign + Update {{ entry.tx_count }} tx{% if entry.tx_count != 1 %}s{% endif %}
+                {% else %}
+                  Reassign
+                {% endif %}
+              </button>
+            </form>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <svg class="w-12 h-12 text-gray-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+  </svg>
+  <h2 class="text-lg font-semibold text-gray-300 mb-1">No match strings on file</h2>
+  <p class="text-sm text-gray-500">Match strings are added automatically when you resolve uncategorized transactions.</p>
+</div>
+{% endif %}
+
+{% endblock %}

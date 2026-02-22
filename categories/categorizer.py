@@ -81,7 +81,8 @@ class Categorizer:
 
         self.memos_to_categories_dict = {}
         for datum in data:
-            self.memos_to_categories_dict[datum[2].lower()] = {
+            cleaned_key = self.clean_string(datum[2])
+            self.memos_to_categories_dict[cleaned_key] = {
                 "category_id": datum[0],
                 "category_name": datum[1],
             }

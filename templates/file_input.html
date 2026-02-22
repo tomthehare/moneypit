@@ -1,45 +1,79 @@
-<!DOCTYPE html><html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Moneypit - Breakdown</title>
-    <style>
-        h2 {text-align: center;}
-		th, td {
-		  text-align: center;
-		  padding: 15px;
-		}
-		table {
-			width: 80%;
-			margin: 0 auto;
-		}
-    </style>
-</head>
-<body>
-  <div>
-      Last updated dates:
-      <br>
-      <table>
-          <tr>
-              <th>Source</th>
-              <th>Last Date</th>
-          </tr>
-        {% for source_data in latest_source_dates %}
-            <tr>
-                <td>{{ source_data['source'] }}</td>
-                <td>{{ source_data['latest_date'] }}</td>
-            </tr>
-        {% endfor %}
-      </table>
-  </div>
-    <div>
-          <form method="post" action='/moneypit/transaction/upload' enctype="multipart/form-data">
-              {{ form.hidden_tag() }}
-              {{ form.file() }}
-              {{ form.submit() }}
-          </form>
+{% extends "base.html" %}
+
+{% block title %}Upload File{% endblock %}
+{% block page_title %}Upload Transactions{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl">
+
+  <!-- Left: Data source status -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-200">Data Sources</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Most recent transaction date per source</p>
     </div>
-</body>
-</html>
+    <div class="overflow-hidden">
+      {% if latest_source_dates %}
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-800">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Latest Date</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800/60">
+          {% for source_data in latest_source_dates %}
+          <tr class="hover:bg-gray-800/30 transition-colors">
+            <td class="px-5 py-3 text-gray-200 font-medium">{{ source_data['source'] }}</td>
+            <td class="px-5 py-3 text-gray-400 font-mono text-xs">{{ source_data['latest_date'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="px-5 py-8 text-center text-gray-500 text-sm">
+        No data sources found. Upload a file to get started.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right: Upload form -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-200">Upload File</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Select a CSV export from your bank</p>
+    </div>
+    <div class="p-5">
+      <form method="post" action="/moneypit/transaction/upload" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <!-- Drop zone -->
+        <label for="file" class="upload-zone flex flex-col items-center justify-center gap-3
+                                  cursor-pointer px-6 py-10 mb-4 text-center">
+          <svg class="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          <div>
+            <p class="text-sm font-medium text-gray-300">Click to select a file</p>
+            <p class="text-xs text-gray-500 mt-1">CSV files supported</p>
+          </div>
+          <input type="file" id="file" name="file"
+                 class="sr-only"
+                 onchange="document.getElementById('filename-display').textContent = this.files[0]?.name || ''">
+        </label>
+
+        <p id="filename-display" class="text-xs text-brand-400 text-center mb-4 min-h-[1rem]"></p>
+
+        <button type="submit"
+                class="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                       rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+          Upload &amp; Process
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
