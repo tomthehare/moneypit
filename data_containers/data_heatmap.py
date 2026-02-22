@@ -8,7 +8,18 @@ from utility.time_helper import (
     get_date_keys_for_timestamp_range,
 )
 
-MAX_LIGHTNESS = 0.3
+# Hue range for the spending gradient (HSL, 0–1 scale)
+# 0.08 = warm yellow-orange, 0.0 = red
+_HUE_LOW = 0.08
+_HUE_HIGH = 0.0
+# Lightness range: dim for low spend, bright for high spend
+_LIGHTNESS_LOW = 0.15
+_LIGHTNESS_HIGH = 0.55
+# Saturation stays high so colors are vivid on a dark background
+_SATURATION = 0.9
+# Surplus color: teal-green
+_HUE_SURPLUS = 0.45
+_LIGHTNESS_SURPLUS = 0.38
 
 
 class DataHeatmap:
@@ -120,23 +131,28 @@ class DataHeatmap:
             for date in self.by_category[category]:
                 money_value = self.the_matrix[date][category]
                 if money_value < 0 and most_money_spent < least_money_spent:
-                    color = Color(Color.RED)
+                    # Normalise: 0.0 = smallest spend in this category, 1.0 = largest
+                    ratio = (money_value - least_money_spent) / (most_money_spent - least_money_spent)
 
-                    color.set_lightness(
-                        abs(
-                            1
-                            - (
-                                (money_value - least_money_spent)
-                                / (most_money_spent - least_money_spent)
-                            )
-                            * MAX_LIGHTNESS
-                        )
-                    )
+                    hue = _HUE_LOW + ratio * (_HUE_HIGH - _HUE_LOW)
+                    lightness = _LIGHTNESS_LOW + ratio * (_LIGHTNESS_HIGH - _LIGHTNESS_LOW)
+
+                    color = Color(Color.RED)
+                    color.hue = hue
+                    color.saturation = _SATURATION
+                    color.set_lightness(lightness)
 
                     self.by_category[category][date] = color
                 elif money_value < 0 and most_money_spent == least_money_spent:
-                    self.by_category[category][date] = Color(Color.WHITE)
+                    # Only one data point — show a mid-intensity amber
+                    color = Color(Color.RED)
+                    color.hue = _HUE_LOW
+                    color.saturation = _SATURATION
+                    color.set_lightness((_LIGHTNESS_LOW + _LIGHTNESS_HIGH) / 2)
+                    self.by_category[category][date] = color
                 elif money_value > 0:
                     color = Color(Color.GREEN)
-                    color.set_lightness(0.4)
+                    color.hue = _HUE_SURPLUS
+                    color.saturation = _SATURATION
+                    color.set_lightness(_LIGHTNESS_SURPLUS)
                     self.by_category[category][date] = color

@@ -1,88 +1,126 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html><html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Moneypit - Heatmap</title>
-    <style>
-        h2 {text-align: center;}
-        h3 {text-align: center;}
-        h4 {text-align: center;}
-		th, td {
-		  text-align: center;
-		  padding: 8px;
-		}
-		table {
-			width: 80%;
-			margin: 0 auto;
-		}
-    </style>
-</head>
-<body>
-<h2 class="display-2">
-{{ date_start + ' to ' + date_end }}
-</h2>
-<h4>
-	<a href="/moneypit/transaction/upload">Upload File</a> | 
-	<a href="/moneypit/categories">Manage Categories</a> | 
-	<a href="/moneypit/heatmap/months?core_expenses={{core_expense_qualifier}}">{{ core_expense_qualifier }} Core Expenses</a> | 
-	<a href="/moneypit/transactions/uncategorized/group">Resolve Uncategorized Transactions</a>
-</h4>
+{% block title %}Heatmap{% endblock %}
+{% block page_title %}Monthly Spending Heatmap{% endblock %}
 
-<div class="container-fluid">
-	<div class="row">
-		<div class="col-md-50">
-			<table border="1px" class=".table">
-				<tr>
-					<th>Category</th>
-				{% for date_key in heatmap_data_container.get_dates() %}
-					<th>
-					{{ date_key }}
-					</th>
-				{% endfor %}
-				</tr>
+{% block header_actions %}
+<a href="/moneypit/sankey"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+  </svg>
+  Sankey
+</a>
+<a href="/moneypit/heatmap/months?core_expenses={{ core_expense_qualifier }}"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  {% if core_expense_qualifier == "Exclude" %}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+    </svg>
+    Exclude Core Expenses
+  {% else %}
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+    </svg>
+    Include Core Expenses
+  {% endif %}
+</a>
+{% endblock %}
 
-				<tr>
-					<td>Surplusses</td>
-				{% for date_key in heatmap_data_container.get_dates() %}
-					<td>
-					{{ heatmap_data_container.get_total_for_date(date_key, only_positive=True) }}
-					</td>
-				{% endfor %}
-				</tr>
+{% block content %}
+<!-- Date range bar -->
+<div class="flex items-center justify-between mb-5">
+  <div class="flex items-center gap-2 text-sm text-gray-400">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+    <span class="text-gray-200 font-medium">{{ date_start }}</span>
+    <span>to</span>
+    <span class="text-gray-200 font-medium">{{ date_end }}</span>
+  </div>
 
-				<tr>
-					<td>Deficits</td>
-				{% for date_key in heatmap_data_container.get_dates() %}
-					<td>
-					{{ heatmap_data_container.get_total_for_date(date_key, only_negative=True) }}
-					</td>
-				{% endfor %}
-				</tr>
-
-				<tr>
-					<td>Total</td>
-				{% for date_key in heatmap_data_container.get_dates() %}
-					<td>
-					{{ heatmap_data_container.get_total_for_date(date_key) }}
-					</td>
-				{% endfor %}
-				</tr>
-			{%for cat in categories%}
-				<tr>
-					<td>{{cat}}</td>
-					{% for date_key in heatmap_data_container.get_dates() %}
-						<td bgcolor="{{ heatmap_data_container.get_rgb(date_key, cat) }}">
-							<a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">{{  "{:,.2f}".format(heatmap_data_container.get_value(date_key, cat)) }}</a>
-						</td>
-					{% endfor %}
-				</tr>
-			{% endfor %}
-			</table>
-		</div>
-	</div>
+  <!-- Date range filter form -->
+  <form method="get" action="/moneypit/heatmap/months"
+        class="flex items-center gap-2">
+    <input type="hidden" name="core_expenses"
+           value="{{ 'Exclude' if core_expense_qualifier == 'Include' else '' }}">
+    <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
+    <input type="month" name="ts_start"
+           class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+    <label class="text-xs text-gray-500 uppercase tracking-wide">To</label>
+    <input type="month" name="ts_end"
+           class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+    <button type="submit"
+            class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+      Apply
+    </button>
+  </form>
 </div>
-</body>
-</html>
+
+<!-- Heatmap table -->
+<div class="heatmap-wrapper bg-gray-900 rounded-xl border border-gray-800 shadow-lg">
+  <table class="heatmap-table w-full">
+    <thead>
+      <tr>
+        <th class="text-left">Category</th>
+        {% for date_key in heatmap_data_container.get_dates() %}
+        <th>{{ date_key }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Surpluses -->
+      <tr class="summary-row">
+        <td>Surpluses</td>
+        {% for date_key in heatmap_data_container.get_dates() %}
+        <td class="text-center text-emerald-400 font-semibold">
+          {{ heatmap_data_container.get_total_for_date(date_key, only_positive=True) }}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <!-- Deficits -->
+      <tr class="summary-row">
+        <td>Deficits</td>
+        {% for date_key in heatmap_data_container.get_dates() %}
+        <td class="text-center text-rose-400 font-semibold">
+          {{ heatmap_data_container.get_total_for_date(date_key, only_negative=True) }}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <!-- Total -->
+      <tr class="summary-total">
+        <td>Total</td>
+        {% for date_key in heatmap_data_container.get_dates() %}
+        <td class="text-center">
+          {{ heatmap_data_container.get_total_for_date(date_key) }}
+        </td>
+        {% endfor %}
+      </tr>
+
+      <!-- Category rows -->
+      {% for cat in categories %}
+      <tr>
+        <td class="text-gray-300">{{ cat }}</td>
+        {% for date_key in heatmap_data_container.get_dates() %}
+          {% set rgb = heatmap_data_container.get_rgb(date_key, cat) %}
+          {% set val = heatmap_data_container.get_value(date_key, cat) %}
+          <td class="color-cell {% if val == 0 %}neutral{% endif %}"
+              {% if val != 0 %}style="background: {{ rgb }}"{% endif %}>
+            <a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">
+              {{ "{:,.2f}".format(val) }}
+            </a>
+          </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

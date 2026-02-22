@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, jsonify
 from datetime import datetime
 from json2html import *
 import pytz
@@ -86,6 +86,75 @@ def heatmap_months():
         heatmap_data_container=heatmap_data_container,
         categories=sorted([a[1] for a in filtered_categories]),
         core_expense_qualifier=core_expense_qualifier,
+    )
+
+
+@app.route("/moneypit/sankey")
+def sankey():
+    date_key_now = get_datekey_for_timestamp(timestamp_now())
+
+    if request.args.get("ts_start"):
+        ts_start_key = request.args.get("ts_start")
+        ts_start = get_timestamp_for_datekey(ts_start_key)
+    else:
+        ts_start_key = add_month(date_key_now, -6)
+        ts_start = get_timestamp_for_datekey(ts_start_key)
+
+    if request.args.get("ts_end"):
+        ts_end_key = request.args.get("ts_end")
+        ts_end = get_timestamp_for_datekey(ts_end_key)
+    else:
+        ts_end_key = add_month(date_key_now, 1)
+        ts_end = get_timestamp_for_datekey(ts_end_key)
+
+    filtered_categories = get_filtered_categories()
+    results = db_client.get_data_for_time_slice(ts_start, ts_end)
+
+    heatmap_data_container = DataHeatmap()
+    heatmap_data_container.init_from_raw(results, filtered_categories)
+
+    # Aggregate each category's total spend across the whole date range
+    category_totals = {}
+    for date_key in heatmap_data_container.get_dates():
+        for cat in heatmap_data_container.the_matrix[date_key]:
+            val = heatmap_data_container.the_matrix[date_key][cat]
+            category_totals[cat] = category_totals.get(cat, 0) + val
+
+    # Sankey: node 0 = "Total Spend", nodes 1..N = expense categories only
+    expense_cats = {k: round(abs(v), 2) for k, v in category_totals.items() if v < 0}
+
+    nodes = ["Total Spend"] + list(expense_cats.keys())
+
+    source_indices = []
+    target_indices = []
+    values = []
+    link_labels = []
+
+    total_spend = sum(expense_cats.values())
+
+    for i, (cat, amt) in enumerate(expense_cats.items()):
+        source_indices.append(0)
+        target_indices.append(i + 1)
+        values.append(amt)
+        link_labels.append(f"${amt:,.2f}")
+
+    import json
+    sankey_data = json.dumps({
+        "nodes": nodes,
+        "sources": source_indices,
+        "targets": target_indices,
+        "values": values,
+        "link_labels": link_labels,
+    })
+
+    return render_template(
+        "sankey.html",
+        sankey_data=sankey_data,
+        date_start=format_timestamp(ts_start, "%B %d, %Y"),
+        date_end=format_timestamp(ts_end, "%B %d, %Y"),
+        ts_start=ts_start_key,
+        ts_end=ts_end_key,
+        total_spend=total_spend,
     )
 
 
@@ -304,6 +373,110 @@ def save_category_for_tx_group():
     db_client.insert_memo_to_category(memo, category_id)
 
     return render_uncategorized_transactions_group_page()
+
+
+@app.route("/moneypit/transactions", methods=["GET"])
+def all_transactions():
+    categories = db_client.get_categories()
+    return render_template("transactions_search.html", categories=categories)
+
+
+@app.route("/moneypit/api/transactions/search", methods=["GET"])
+def api_search_transactions():
+    from Levenshtein import distance as levenshtein_distance
+
+    memo_query = request.args.get("q", "").strip()
+    category_filter = request.args.get("category", "").strip()
+
+    results = db_client.search_transactions(
+        memo_query=memo_query,
+        category_filter=category_filter,
+        limit=300,
+    )
+
+    # If there's a query, sort by fuzzy similarity (best match first)
+    if memo_query:
+        query_lower = memo_query.lower()
+        def score(tx):
+            memo_lower = tx["Memo"].lower()
+            # Exact substring → score 0 (best); otherwise Levenshtein on the memo
+            if query_lower in memo_lower:
+                return 0
+            return levenshtein_distance(query_lower, memo_lower[:len(query_lower) + 10])
+        results.sort(key=score)
+
+    return jsonify(results[:200])
+
+
+@app.route("/moneypit/files", methods=["GET"])
+def list_files():
+    files = db_client.get_all_input_files()
+    return render_template("files.html", files=files)
+
+
+@app.route("/moneypit/files/<int:file_id>", methods=["GET"])
+def view_file(file_id):
+    files = db_client.get_all_input_files()
+    current_file = next((f for f in files if f["file_id"] == file_id), None)
+    if not current_file:
+        return redirect("/moneypit/files")
+    transactions = db_client.get_transactions_for_file(file_id)
+    categories = db_client.get_categories()
+    return render_template(
+        "file_transactions.html",
+        current_file=current_file,
+        transactions=transactions,
+        categories=categories,
+    )
+
+
+@app.route("/moneypit/api/transaction/<int:tx_id>/category", methods=["POST"])
+def api_update_tx_category(tx_id):
+    data = request.get_json()
+    category_id = data.get("category_id")
+    if category_id is None:
+        return jsonify({"ok": False, "error": "missing category_id"}), 400
+    db_client.update_category(tx_id, int(category_id))
+    return jsonify({"ok": True, "tx_id": tx_id, "category_id": category_id})
+
+
+@app.route("/moneypit/categories/matches", methods=["GET"])
+def manage_category_matches():
+    match_strings = db_client.get_match_strings_with_tx_counts()
+    categories = db_client.get_categories()
+
+    # Pre-group by category so the template doesn't have to track state mid-loop
+    groups = {}
+    for entry in match_strings:
+        cat = entry["category_name"]
+        if cat not in groups:
+            groups[cat] = []
+        groups[cat].append(entry)
+
+    return render_template(
+        "category_matches.html",
+        groups=groups,
+        categories=categories,
+    )
+
+
+@app.route("/moneypit/categories/matches/add", methods=["POST"])
+def add_category_match():
+    match_string = request.form.get("match-string", "").strip()
+    category_id = request.form.get("category-id", "").strip()
+    if match_string and category_id:
+        rows_updated = db_client.add_match_rule_and_apply(match_string, category_id)
+        _logger.info(f"Added match rule '{match_string}' -> category_id={category_id}, {rows_updated} transactions backfilled")
+    return redirect("/moneypit/categories/matches")
+
+
+@app.route("/moneypit/categories/matches/reassign", methods=["POST"])
+def reassign_category_match():
+    match_id = request.form["match-id"]
+    new_category_id = request.form["new-category-id"]
+    rows_updated = db_client.reassign_match_string(match_id, new_category_id)
+    _logger.info(f"Reassigned match_id={match_id} to category_id={new_category_id}, {rows_updated} transactions updated")
+    return redirect("/moneypit/categories/matches")
 
 
 @app.route("/moneypit/categories", methods=["GET", "POST"])

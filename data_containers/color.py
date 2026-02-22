@@ -22,7 +22,7 @@ class Color:
         return float(int(hexval, 16) / 255)
 
     def get_rgb_string(self):
-        return self.red + self.green + self.blue
+        return "#" + self.red + self.green + self.blue
 
     def set_lightness(self, lightness):
         self.lightness = lightness

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Sankey{% endblock %}
+{% block page_title %}Spending Flow{% endblock %}
+
+{% block header_actions %}
+<!-- Date range filter -->
+<form method="get" action="/moneypit/sankey" class="flex items-center gap-2">
+  <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
+  <input type="month" name="ts_start" value="{{ ts_start }}"
+         class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5
+                focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+  <label class="text-xs text-gray-500 uppercase tracking-wide">To</label>
+  <input type="month" name="ts_end" value="{{ ts_end }}"
+         class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5
+                focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+  <button type="submit"
+          class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+    Apply
+  </button>
+</form>
+
+<a href="/moneypit/heatmap/months{% if ts_start or ts_end %}?{% if ts_start %}ts_start={{ ts_start }}{% endif %}{% if ts_start and ts_end %}&{% endif %}{% if ts_end %}ts_end={{ ts_end }}{% endif %}{% endif %}"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+  </svg>
+  Heatmap
+</a>
+{% endblock %}
+
+{% block head %}
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Date range label -->
+<div class="flex items-center gap-2 text-sm text-gray-400 mb-5">
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+  </svg>
+  <span class="text-gray-200 font-medium">{{ date_start }}</span>
+  <span>to</span>
+  <span class="text-gray-200 font-medium">{{ date_end }}</span>
+  <span class="ml-3 text-gray-500">•</span>
+  <span class="ml-1 text-gray-400">Total tracked: <span class="text-gray-200 font-semibold">${{ "{:,.2f}".format(total_spend) }}</span></span>
+</div>
+
+<!-- Sankey chart -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-4">
+  <div id="sankey-chart" style="height: 640px;"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const raw = {{ sankey_data | safe }};
+
+  // Build a colour palette for the category nodes (skip index 0 = Total Spend)
+  const palette = [
+    '#f97316', '#fb923c', '#fbbf24', '#a3e635', '#34d399',
+    '#22d3ee', '#38bdf8', '#818cf8', '#c084fc', '#f472b6',
+    '#fb7185', '#e879f9', '#67e8f9', '#86efac', '#fde68a',
+    '#fdba74', '#d8b4fe', '#a5b4fc', '#6ee7b7', '#fca5a5',
+  ];
+
+  const nodeColors = raw.nodes.map((_, i) => {
+    if (i === 0) return 'rgba(100, 116, 139, 0.9)';              // Total Spend — slate
+    return palette[(i - 1) % palette.length];
+  });
+
+  const linkColors = raw.sources.map((src, i) => {
+    const targetColor = nodeColors[raw.targets[i]];
+    // Make links semi-transparent versions of target node color
+    return targetColor.replace('0.9)', '0.25)').replace('rgba', 'rgba');
+  });
+
+  const data = [{
+    type: 'sankey',
+    orientation: 'v',
+    arrangement: 'snap',
+    node: {
+      pad: 20,
+      thickness: 24,
+      line: { color: 'rgba(0,0,0,0)', width: 0 },
+      label: raw.nodes,
+      color: nodeColors,
+      hovertemplate: '<b>%{label}</b><br>$%{value:,.2f}<extra></extra>',
+    },
+    link: {
+      source: raw.sources,
+      target: raw.targets,
+      value: raw.values,
+      label: raw.link_labels,
+      color: linkColors,
+      hovertemplate: '%{label}<extra></extra>',
+    },
+  }];
+
+  const layout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor:  'rgba(0,0,0,0)',
+    font: {
+      family: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      size: 12,
+      color: '#e2e8f0',
+    },
+    margin: { l: 10, r: 10, t: 10, b: 10 },
+  };
+
+  const config = {
+    displayModeBar: false,
+    responsive: true,
+  };
+
+  Plotly.newPlot('sankey-chart', data, layout, config);
+</script>
+{% endblock %}
