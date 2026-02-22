@@ -1,67 +1,96 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html><html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Moneypit - Category Resolution</title>
-    <style>
-        h2 {text-align: center;}
-        h4 {text-align: center;}
-		th, td {
-		  padding: 15px;
-		}
-		table {
-			width: 60%;
-			margin: 0 auto;
-		}
-    </style>
-</head>
-<body>
-<h2 class="display-2">
-Category Resolution
-</h2>
-<h4>
-	<a href="/moneypit/heatmap/months">Home</a>
-</h4>
+{% block title %}Resolve Categories{% endblock %}
+{% block page_title %}Bulk Category Resolution{% endblock %}
 
-<div class="container-fluid">
-	<div class="row">
-		<div class="col-md-50">
-            <form action="/moneypit/transactions/category" method="post">
-                <table border="1px" class=".table">
-                    <tr>
-                        <th>Date</th>
-                        <th>Transaction Amount</th>
-                        <th>Memo</th>
-                        <th>Source</th>
-                        <th>Category</th>
-                    </tr>
-                    {% for tx_id, denomination, memo, date, source, category in open_txs %}
-                    <tr>
-                        <td>{{ date }}</td>
-                        <td>{{ denomination }}</td>
-                        <td>{{ memo }}</td>
-                        <td>{{ source }}</td>
-                        <td>
-                                <select name="category-id" id="category-id">
-                                    {% for iterator_cat in categories_list %}
-                                        <option value="{{iterator_cat[0]}}"
-                                        {{ 'selected' if iterator_cat[1] == category else '' }}
-                                        >{{ iterator_cat[1] }}</option>
-                                    {% endfor %}
-                                </select>
-                                <input type="hidden" id="current-category" name="current-category" value="{{category}}">
-                                <input type="hidden" id="tx-id" name="tx-id" value="{{tx_id}}" />
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-                <input type="submit" value="Submit Categories" />
-            </form>
-		</div>
-	</div>
+{% block header_actions %}
+<a href="/moneypit/heatmap/months"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+  </svg>
+  Back to Heatmap
+</a>
+{% endblock %}
+
+{% block content %}
+
+{% if open_txs %}
+<div class="mb-5 flex items-center gap-3">
+  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-800/50 text-amber-400 text-sm font-semibold">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    {{ open_txs | length }} uncategorized transaction{% if open_txs | length != 1 %}s{% endif %}
+  </span>
+  <p class="text-sm text-gray-400">Assign a category to each transaction, then submit all at once.</p>
 </div>
-</body>
-</html>
+
+<form action="/moneypit/transactions/category" method="post">
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden mb-5">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+          <th class="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Amount</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Memo</th>
+          <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</th>
+          <th class="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide text-center">Category</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for tx_id, denomination, memo, date, source, category in open_txs %}
+        <tr class="hover:bg-gray-800/40 transition-colors">
+          <td class="px-4 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{{ date }}</td>
+          <td class="px-4 py-3 text-right font-semibold font-mono whitespace-nowrap
+                     {% if denomination < 0 %}text-rose-400{% else %}text-emerald-400{% endif %}">
+            {{ denomination }}
+          </td>
+          <td class="px-4 py-3 text-gray-200 max-w-xs truncate">{{ memo }}</td>
+          <td class="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">{{ source }}</td>
+          <td class="px-4 py-3 text-center">
+            <input type="hidden" name="tx-id" value="{{ tx_id }}">
+            <select name="category-id"
+                    class="bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-2 py-1.5
+                           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+              {% for iterator_cat in categories_list %}
+              <option value="{{ iterator_cat[0] }}"
+                {{ 'selected' if iterator_cat[1] == category else '' }}>
+                {{ iterator_cat[1] }}
+              </option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex justify-end">
+    <button type="submit"
+            class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                   rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950">
+      Save All Categories
+    </button>
+  </div>
+</form>
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <svg class="w-12 h-12 text-brand-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <h2 class="text-lg font-semibold text-gray-200 mb-1">All caught up!</h2>
+  <p class="text-sm text-gray-500 mb-6">No uncategorized transactions remaining.</p>
+  <a href="/moneypit/heatmap/months"
+     class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+    Go to Heatmap
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}

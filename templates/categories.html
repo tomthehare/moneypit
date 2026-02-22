@@ -1,56 +1,71 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html><html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Moneypit - Breakdown</title>
-    <style>
-        h2 {text-align: center;}
-		th, td {
-		  padding: 15px;
-		}
-		table {
-			width: 60%;
-			margin: 0 auto;
-		}
-    </style>
-</head>
-<body>
-<h2 class="display-2">
-Categories
-</h2>
+{% block title %}Categories{% endblock %}
+{% block page_title %}Manage Categories{% endblock %}
 
-<div class="container-fluid">
-	<div class="row">
-		<div class="col-md-50">
-			<form action="/moneypit/categories" method="post">
-				<label for="category-input">New Category: </label>
-				<input type="text" id="category-input" name="category-input">
-				<input type="submit" value="Insert">
-			</form>
-		</div>
-	</div>
-	<div class="row">
-		<div class="col-md-50">
-			<table border="1px" class=".table">
-				<tr>
-					<th>Category</th>
-				</tr>
-				{% for category in data %}
-				<tr>
-					<td>{{category}}</td>
-				</tr>
-				{% endfor %}
-			</table>
-		</div>
-	</div>
-	<div class="row">
-		<div class="col-md-50">
-			<a href="/moneypit/heatmap/months">Go back</a>
-		</div>
-	</div>
+{% block header_actions %}
+<a href="/moneypit/heatmap/months"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+  </svg>
+  Back to Heatmap
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-4xl">
+
+  <!-- Left: Add new category -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-200">Add Category</h2>
+      <p class="text-xs text-gray-500 mt-0.5">Create a new spending category</p>
+    </div>
+    <div class="p-5">
+      <form action="/moneypit/categories" method="post" class="flex flex-col gap-3">
+        <div>
+          <label for="category-input" class="block text-xs font-medium text-gray-400 mb-1.5">
+            Category name
+          </label>
+          <input type="text" id="category-input" name="category-input"
+                 placeholder="e.g. groceries, utilities, dining out…"
+                 class="w-full bg-gray-800 border border-gray-700 text-gray-100 text-sm rounded-lg
+                        px-3 py-2.5 placeholder-gray-600
+                        focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        </div>
+        <button type="submit"
+                class="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                       rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+          Add Category
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Right: Existing categories -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+      <div>
+        <h2 class="text-sm font-semibold text-gray-200">All Categories</h2>
+        <p class="text-xs text-gray-500 mt-0.5">{{ data | length }} total</p>
+      </div>
+    </div>
+    <div class="p-5">
+      {% if data %}
+      <div class="flex flex-wrap gap-2">
+        {% for category in data %}
+        <span class="category-pill">{{ category }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-8 text-gray-500 text-sm">
+        No categories yet. Add one to get started.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
 </div>
-</body>
-</html>
+{% endblock %}

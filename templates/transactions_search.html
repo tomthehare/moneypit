@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}All Transactions{% endblock %}
+{% block page_title %}All Transactions{% endblock %}
+
+{% block content %}
+
+<!-- Search bar -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-4 mb-5">
+  <div class="flex items-end gap-3">
+    <!-- Memo search -->
+    <div class="flex-1">
+      <label for="memo-search" class="block text-xs font-medium text-gray-400 mb-1.5">
+        Search memo <span class="text-gray-600">(fuzzy)</span>
+      </label>
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" id="memo-search"
+               placeholder="e.g. OTTO PIZZA, starbucks, whole foods…"
+               autocomplete="off"
+               class="w-full bg-gray-800 border border-gray-700 text-gray-100 text-sm rounded-lg
+                      pl-9 pr-4 py-2.5 placeholder-gray-600
+                      focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+      </div>
+    </div>
+
+    <!-- Category filter -->
+    <div class="w-52">
+      <label for="category-filter" class="block text-xs font-medium text-gray-400 mb-1.5">
+        Filter by category
+      </label>
+      <select id="category-filter"
+              class="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg
+                     px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        <option value="">All categories</option>
+        {% for cat_id, cat_name in categories %}
+        <option value="{{ cat_name }}">{{ cat_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Clear -->
+    <button id="clear-btn"
+            class="px-3 py-2.5 border border-gray-700 text-gray-400 hover:text-gray-200
+                   hover:border-gray-600 text-sm rounded-lg transition-colors">
+      Clear
+    </button>
+  </div>
+
+  <!-- Status line -->
+  <div class="mt-3 flex items-center gap-3 text-xs text-gray-500">
+    <span id="result-count">Enter a search to find transactions</span>
+    <span id="search-spinner" class="hidden">
+      <svg class="w-3.5 h-3.5 text-brand-400 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+      </svg>
+    </span>
+  </div>
+</div>
+
+<!-- Results table -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-800">
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide w-16">ID</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+        <th class="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Amount</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Memo</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
+        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</th>
+      </tr>
+    </thead>
+    <tbody id="results-body" class="divide-y divide-gray-800">
+      <tr id="empty-state">
+        <td colspan="6" class="px-4 py-16 text-center text-gray-600 text-sm">
+          Start typing to search transactions
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const memoInput    = document.getElementById('memo-search');
+  const categorySelect = document.getElementById('category-filter');
+  const clearBtn     = document.getElementById('clear-btn');
+  const resultCount  = document.getElementById('result-count');
+  const spinner      = document.getElementById('search-spinner');
+  const tbody        = document.getElementById('results-body');
+  const emptyState   = document.getElementById('empty-state');
+
+  let debounceTimer = null;
+  let currentController = null;
+
+  function formatMoney(val) {
+    const abs = Math.abs(val).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return (val < 0 ? '-' : '+') + '$' + abs;
+  }
+
+  function highlightMatch(text, query) {
+    if (!query) return escHtml(text);
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return escHtml(text);
+    return escHtml(text.slice(0, idx))
+      + '<mark class="bg-brand-900/60 text-brand-300 rounded px-0.5">'
+      + escHtml(text.slice(idx, idx + query.length))
+      + '</mark>'
+      + escHtml(text.slice(idx + query.length));
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderRows(rows, query) {
+    if (rows.length === 0) {
+      tbody.innerHTML = `
+        <tr><td colspan="6" class="px-4 py-16 text-center text-gray-600 text-sm">
+          No transactions found
+        </td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = rows.map(tx => {
+      const isNeg = tx.MoneySpent < 0;
+      const amtClass = isNeg ? 'text-rose-400' : 'text-emerald-400';
+      const amt = formatMoney(tx.MoneySpent);
+      const memo = highlightMatch(tx.Memo, query);
+      const cat = tx.CategoryName
+        ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700">${escHtml(tx.CategoryName)}</span>`
+        : `<span class="text-amber-500 text-xs italic">uncategorized</span>`;
+
+      return `<tr class="hover:bg-gray-800/40 transition-colors">
+        <td class="px-4 py-2.5 text-gray-600 font-mono text-xs">${tx.ID}</td>
+        <td class="px-4 py-2.5 text-gray-400 font-mono text-xs whitespace-nowrap">${escHtml(tx.Date)}</td>
+        <td class="px-4 py-2.5 text-right font-semibold font-mono text-xs whitespace-nowrap ${amtClass}">${amt}</td>
+        <td class="px-4 py-2.5 text-gray-200 text-xs max-w-xs">${memo}</td>
+        <td class="px-4 py-2.5">${cat}</td>
+        <td class="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">${escHtml(tx.SourceBankName)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function doSearch() {
+    const q = memoInput.value.trim();
+    const category = categorySelect.value;
+
+    if (!q && !category) {
+      tbody.innerHTML = `<tr id="empty-state"><td colspan="6" class="px-4 py-16 text-center text-gray-600 text-sm">Start typing to search transactions</td></tr>`;
+      resultCount.textContent = 'Enter a search to find transactions';
+      return;
+    }
+
+    // Cancel any in-flight request
+    if (currentController) currentController.abort();
+    currentController = new AbortController();
+
+    spinner.classList.remove('hidden');
+    resultCount.textContent = 'Searching…';
+
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (category) params.set('category', category);
+
+    try {
+      const resp = await fetch(`/moneypit/api/transactions/search?${params}`, {
+        signal: currentController.signal,
+      });
+      const data = await resp.json();
+      spinner.classList.add('hidden');
+
+      const label = data.length === 200
+        ? 'Showing top 200 results — refine your search to narrow down'
+        : `${data.length} transaction${data.length !== 1 ? 's' : ''} found`;
+      resultCount.textContent = label;
+
+      renderRows(data, q);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        spinner.classList.add('hidden');
+        resultCount.textContent = 'Search failed';
+      }
+    }
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+  }
+
+  memoInput.addEventListener('input', scheduleSearch);
+  categorySelect.addEventListener('change', doSearch);
+
+  clearBtn.addEventListener('click', () => {
+    memoInput.value = '';
+    categorySelect.value = '';
+    tbody.innerHTML = `<tr id="empty-state"><td colspan="6" class="px-4 py-16 text-center text-gray-600 text-sm">Start typing to search transactions</td></tr>`;
+    resultCount.textContent = 'Enter a search to find transactions';
+    memoInput.focus();
+  });
+
+  // Auto-focus search on load
+  memoInput.focus();
+</script>
+{% endblock %}

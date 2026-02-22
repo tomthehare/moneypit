@@ -1,71 +1,132 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html><html>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title>Moneypit - Category Resolution</title>
-    <style>
-        h2 {text-align: center;}
-        h4 {text-align: center;}
-		th, td {
-		  padding: 15px;
-		}
-		table {
-			width: 60%;
-			margin: 0 auto;
-		}
-    </style>
-</head>
-<body>
-<h2 class="display-2">
-Category Group Resolution
-</h2>
-<h4>
-	<a href="/moneypit/categories">Manage Categories</a> |
-	<a href="/moneypit/heatmap/months">Home</a>
-</h4>
+{% block title %}Categorize Group{% endblock %}
+{% block page_title %}Group Category Resolution{% endblock %}
 
-
-<h3>
-    {{ total_remaining }} uncategorized transactions remaining.
-</h3>
-
-<div class="container-fluid">
-	<div class="row">
-		<div class="col-md-50">
-            <form action="/moneypit/transaction-group/category" method="post">
-			<select name="category-id" id="category-id">
-			    {% for iterator_cat in categories %}
-                {{ category_guess }}
-				<option value="{{iterator_cat[0]}}"
-				{{ 'selected' if iterator_cat[1] == category_guess else '' }}
-				>{{ iterator_cat[1] }}</option>
-			    {% endfor %}
-			</select>
-			<input type="hidden" id="tx-ids" name="tx-ids" value="{{tx_ids}}" />
-
-                <table border="1px" class=".table">
-                    <tr>
-                        <th>Date</th>
-                        <th>Transaction Amount</th>
-                        <th>Memo</th>
-                        <th>Source</th>
-                    </tr>
-                    {% for tx_id, denomination, memo, date, source in transaction_group %}
-                    <tr>
-                        <td>{{ date }}</td>
-                        <td>{{ denomination }}</td>
-                        <td>{{ memo }}</td>
-                        <td>{{ source }}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-                <input type="submit" value="Submit Categories" />
-            </form>
-		</div>
-	</div>
+{% block header_actions %}
+<div class="flex items-center gap-3">
+  {% if total_remaining > 0 %}
+  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-800/50 text-amber-400 text-sm font-semibold">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    {{ total_remaining }} remaining
+  </span>
+  {% else %}
+  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/50 text-emerald-400 text-sm font-semibold">
+    All done
+  </span>
+  {% endif %}
+  <a href="/moneypit/categories"
+     class="text-sm text-gray-400 hover:text-gray-200 transition-colors">
+    Manage Categories
+  </a>
+  <a href="/moneypit/heatmap/months"
+     class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+            border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+    </svg>
+    Home
+  </a>
 </div>
-</body>
-</html>
+{% endblock %}
+
+{% block content %}
+
+{% if transaction_group %}
+
+<form action="/moneypit/transaction-group/category" method="post">
+  <input type="hidden" name="tx-ids" value="{{ tx_ids }}">
+
+  <!-- Category selector card -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-6 mb-5">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+      Assign category for this group
+    </p>
+
+    {% if category_guess %}
+    <div class="flex items-center gap-2 mb-4 p-3 bg-brand-900/30 border border-brand-800/40 rounded-lg">
+      <svg class="w-4 h-4 text-brand-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+      </svg>
+      <span class="text-sm text-brand-300">
+        Suggested: <strong class="text-brand-200">{{ category_guess }}</strong>
+      </span>
+    </div>
+    {% endif %}
+
+    <div class="flex items-center gap-3">
+      <select name="category-id"
+              class="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-sm rounded-lg px-3 py-2.5
+                     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        {% for iterator_cat in categories %}
+        <option value="{{ iterator_cat[0] }}"
+          {{ 'selected' if iterator_cat[1] == category_guess else '' }}>
+          {{ iterator_cat[1] }}
+        </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit"
+              class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                     rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-950 whitespace-nowrap">
+        Save &amp; Next
+      </button>
+    </div>
+  </div>
+
+  <!-- Transactions in this group -->
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-800 flex items-center gap-2">
+      <h3 class="text-sm font-semibold text-gray-200">
+        Transactions in this group
+      </h3>
+      <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+        {{ transaction_group | length }}
+      </span>
+    </div>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+          <th class="text-right px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Amount</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Memo</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">Source</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800">
+        {% for tx_id, denomination, memo, date, source in transaction_group %}
+        <tr class="hover:bg-gray-800/30 transition-colors">
+          <td class="px-5 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{{ date }}</td>
+          <td class="px-5 py-3 text-right font-semibold font-mono whitespace-nowrap
+                     {% if denomination < 0 %}text-rose-400{% else %}text-emerald-400{% endif %}">
+            {{ denomination }}
+          </td>
+          <td class="px-5 py-3 text-gray-200">{{ memo }}</td>
+          <td class="px-5 py-3 text-gray-400 text-xs">{{ source }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{% else %}
+<div class="flex flex-col items-center justify-center py-24 text-center">
+  <svg class="w-12 h-12 text-brand-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+  </svg>
+  <h2 class="text-lg font-semibold text-gray-200 mb-1">All caught up!</h2>
+  <p class="text-sm text-gray-500 mb-6">No uncategorized transaction groups remaining.</p>
+  <a href="/moneypit/heatmap/months"
+     class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+    Go to Heatmap
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
