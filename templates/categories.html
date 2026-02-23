@@ -4,7 +4,7 @@
 {% block page_title %}Manage Categories{% endblock %}
 
 {% block header_actions %}
-<a href="/heatmap/months"
+<a href="/moneypit/heatmap/months"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -24,7 +24,7 @@
       <p class="text-xs text-gray-500 mt-0.5">Create a new spending category</p>
     </div>
     <div class="p-5">
-      <form action="/categories" method="post" class="flex flex-col gap-3">
+      <form action="/moneypit/categories" method="post" class="flex flex-col gap-3">
         <div>
           <label for="category-input" class="block text-xs font-medium text-gray-400 mb-1.5">
             Category name

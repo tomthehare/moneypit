@@ -4,7 +4,7 @@
 {% block page_title %}Category Match Strings{% endblock %}
 
 {% block header_actions %}
-<a href="/categories"
+<a href="/moneypit/categories"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -25,7 +25,7 @@
     </p>
   </div>
   <div class="p-5">
-    <form action="/categories/matches/add" method="post"
+    <form action="/moneypit/categories/matches/add" method="post"
           class="flex items-end gap-3">
       <div class="flex-1">
         <label for="match-string" class="block text-xs font-medium text-gray-400 mb-1.5">
@@ -110,7 +110,7 @@
 
           <!-- Reassign form -->
           <td class="px-5 py-3">
-            <form action="/categories/matches/reassign" method="post"
+            <form action="/moneypit/categories/matches/reassign" method="post"
                   class="flex items-center gap-2">
               <input type="hidden" name="match-id" value="{{ entry.match_id }}">
               <select name="new-category-id"

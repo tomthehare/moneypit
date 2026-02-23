@@ -4,7 +4,7 @@
 {% block page_title %}Bulk Category Resolution{% endblock %}
 
 {% block header_actions %}
-<a href="/heatmap/months"
+<a href="/moneypit/heatmap/months"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -28,7 +28,7 @@
   <p class="text-sm text-gray-400">Assign a category to each transaction, then submit all at once.</p>
 </div>
 
-<form action="/transactions/category" method="post">
+<form action="/moneypit/transactions/category" method="post">
   <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden mb-5">
     <table class="w-full text-sm">
       <thead>
@@ -86,7 +86,7 @@
   </svg>
   <h2 class="text-lg font-semibold text-gray-200 mb-1">All caught up!</h2>
   <p class="text-sm text-gray-500 mb-6">No uncategorized transactions remaining.</p>
-  <a href="/heatmap/months"
+  <a href="/moneypit/heatmap/months"
      class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
     Go to Heatmap
   </a>
