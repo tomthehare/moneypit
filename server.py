@@ -23,7 +23,7 @@ import coloredlogs, logging
 from database.sqlite_client import SqliteClient
 from utility.time_observer import TimeObserver
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="/moneypit/static")
 app.config["SECRET_KEY"] = "supersecretkey"
 db_client = SqliteClient("sqlite/tx.db")
 
