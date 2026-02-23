@@ -4,7 +4,7 @@
 {% block page_title %}Uploaded Files{% endblock %}
 
 {% block header_actions %}
-<a href="/moneypit/transaction/upload"
+<a href="/transaction/upload"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           bg-brand-600 hover:bg-brand-700 text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +55,7 @@
           {% endif %}
         </td>
         <td class="px-5 py-3 text-right">
-          <a href="/moneypit/files/{{ f.file_id }}"
+          <a href="/files/{{ f.file_id }}"
              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
                     border border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white
                     opacity-0 group-hover:opacity-100 transition-all">
@@ -79,7 +79,7 @@
   </svg>
   <h2 class="text-lg font-semibold text-gray-300 mb-1">No files uploaded yet</h2>
   <p class="text-sm text-gray-500 mb-6">Upload a bank export CSV to get started.</p>
-  <a href="/moneypit/transaction/upload"
+  <a href="/transaction/upload"
      class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
     Upload File
   </a>

@@ -18,11 +18,11 @@
     All done
   </span>
   {% endif %}
-  <a href="/moneypit/categories"
+  <a href="/categories"
      class="text-sm text-gray-400 hover:text-gray-200 transition-colors">
     Manage Categories
   </a>
-  <a href="/moneypit/heatmap/months"
+  <a href="/heatmap/months"
      class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
             border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -37,7 +37,7 @@
 
 {% if transaction_group %}
 
-<form action="/moneypit/transaction-group/category" method="post">
+<form action="/transaction-group/category" method="post">
   <input type="hidden" name="tx-ids" value="{{ tx_ids }}">
 
   <!-- Category selector card -->
@@ -122,7 +122,7 @@
   </svg>
   <h2 class="text-lg font-semibold text-gray-200 mb-1">All caught up!</h2>
   <p class="text-sm text-gray-500 mb-6">No uncategorized transaction groups remaining.</p>
-  <a href="/moneypit/heatmap/months"
+  <a href="/heatmap/months"
      class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
     Go to Heatmap
   </a>

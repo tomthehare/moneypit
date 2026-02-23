@@ -4,7 +4,7 @@
 {% block page_title %}Monthly Spending Heatmap{% endblock %}
 
 {% block header_actions %}
-<a href="/moneypit/sankey"
+<a href="/sankey"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -13,7 +13,7 @@
   </svg>
   Sankey
 </a>
-<a href="/moneypit/heatmap/months?core_expenses={{ core_expense_qualifier }}"
+<a href="/heatmap/months?core_expenses={{ core_expense_qualifier }}"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   {% if core_expense_qualifier == "Exclude" %}
@@ -45,7 +45,7 @@
   </div>
 
   <!-- Date range filter form -->
-  <form method="get" action="/moneypit/heatmap/months"
+  <form method="get" action="/heatmap/months"
         class="flex items-center gap-2">
     <input type="hidden" name="core_expenses"
            value="{{ 'Exclude' if core_expense_qualifier == 'Include' else '' }}">
@@ -113,7 +113,7 @@
           {% set val = heatmap_data_container.get_value(date_key, cat) %}
           <td class="color-cell {% if val == 0 %}neutral{% endif %}"
               {% if val != 0 %}style="background: {{ rgb }}"{% endif %}>
-            <a href="/moneypit/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">
+            <a href="/heatmap/transactions?date-key={{ date_key }}&category={{ cat }}">
               {{ "{:,.2f}".format(val) }}
             </a>
           </td>

@@ -50,7 +50,7 @@ def get_adjusted_offset_seconds():
     return now.utcoffset().total_seconds()
 
 
-@app.route("/moneypit/heatmap/months")
+@app.route("/heatmap/months")
 def heatmap_months():
     exclude_core_expenses = request.args.get("core_expenses") == "Exclude"
     core_expense_qualifier = "Include" if exclude_core_expenses else "Exclude"
@@ -89,7 +89,7 @@ def heatmap_months():
     )
 
 
-@app.route("/moneypit/sankey")
+@app.route("/sankey")
 def sankey():
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
@@ -158,7 +158,7 @@ def sankey():
     )
 
 
-@app.route("/moneypit/heatmap/weeks")
+@app.route("/heatmap/weeks")
 def heatmap_week_transactions():
     exclude_core_expenses = request.args.get("core_expenses") == "Exclude"
     core_expense_qualifier = "Include" if exclude_core_expenses else "Exclude"
@@ -181,7 +181,7 @@ def heatmap_week_transactions():
     results = db_client.get_data_for_time_slice(ts_start, ts_end)
 
 
-@app.route("/moneypit/heatmap/transactions")
+@app.route("/heatmap/transactions")
 def heatmap_month_transactions():
     return render_transactions_page(
         request.args.get("date-key"), request.args.get("category")
@@ -213,7 +213,7 @@ def render_transactions_page(date_key, category):
     )
 
 
-@app.route("/moneypit/transaction/category", methods=["POST"])
+@app.route("/transaction/category", methods=["POST"])
 def change_tx_category():
     tx_id = request.form["tx-id"]
     date_key = request.form["date-key"]
@@ -225,7 +225,7 @@ def change_tx_category():
     return render_transactions_page(date_key, current_category)
 
 
-@app.route("/moneypit/transaction/delete", methods=["POST"])
+@app.route("/transaction/delete", methods=["POST"])
 def delete_tx():
     tx_id = request.form["txid"]
     date_key = request.form["datekey"]
@@ -241,7 +241,7 @@ class UploadFileForm(FlaskForm):
     submit = SubmitField("Upload file")
 
 
-@app.route("/moneypit/transaction/upload", methods=["POST", "GET"])
+@app.route("/transaction/upload", methods=["POST", "GET"])
 def upload_file():
     latest_source_dates = db_client.get_latest_source_dates()
 
@@ -319,12 +319,12 @@ def render_file_transactions_page():
     )
 
 
-@app.route("/moneypit/transactions/uncategorized/group")
+@app.route("/transactions/uncategorized/group")
 def show_uncategorized_transactions_group():
     return render_uncategorized_transactions_group_page()
 
 
-@app.route("/moneypit/transactions/uncategorized")
+@app.route("/transactions/uncategorized")
 def show_uncategorized_transactions():
     return render_file_transactions_page()
 
@@ -342,7 +342,7 @@ def get_filtered_categories(additional_ignored_categories=None):
     ]
 
 
-@app.route("/moneypit/transactions/category", methods=["POST"])
+@app.route("/transactions/category", methods=["POST"])
 def save_categories():
     category_ids = request.form.getlist("category-id")
     tx_ids = request.form.getlist("tx-id")
@@ -355,7 +355,7 @@ def save_categories():
     return heatmap_months()
 
 
-@app.route("/moneypit/transaction-group/category", methods=["POST"])
+@app.route("/transaction-group/category", methods=["POST"])
 def save_category_for_tx_group():
     category_id = request.form["category-id"]
     tx_ids = request.form["tx-ids"].split(",")
@@ -375,13 +375,13 @@ def save_category_for_tx_group():
     return render_uncategorized_transactions_group_page()
 
 
-@app.route("/moneypit/transactions", methods=["GET"])
+@app.route("/transactions", methods=["GET"])
 def all_transactions():
     categories = db_client.get_categories()
     return render_template("transactions_search.html", categories=categories)
 
 
-@app.route("/moneypit/api/transactions/search", methods=["GET"])
+@app.route("/api/transactions/search", methods=["GET"])
 def api_search_transactions():
     from Levenshtein import distance as levenshtein_distance
 
@@ -408,18 +408,18 @@ def api_search_transactions():
     return jsonify(results[:200])
 
 
-@app.route("/moneypit/files", methods=["GET"])
+@app.route("/files", methods=["GET"])
 def list_files():
     files = db_client.get_all_input_files()
     return render_template("files.html", files=files)
 
 
-@app.route("/moneypit/files/<int:file_id>", methods=["GET"])
+@app.route("/files/<int:file_id>", methods=["GET"])
 def view_file(file_id):
     files = db_client.get_all_input_files()
     current_file = next((f for f in files if f["file_id"] == file_id), None)
     if not current_file:
-        return redirect("/moneypit/files")
+        return redirect("/files")
     transactions = db_client.get_transactions_for_file(file_id)
     categories = db_client.get_categories()
     return render_template(
@@ -430,7 +430,7 @@ def view_file(file_id):
     )
 
 
-@app.route("/moneypit/api/transaction/<int:tx_id>/category", methods=["POST"])
+@app.route("/api/transaction/<int:tx_id>/category", methods=["POST"])
 def api_update_tx_category(tx_id):
     data = request.get_json()
     category_id = data.get("category_id")
@@ -440,7 +440,7 @@ def api_update_tx_category(tx_id):
     return jsonify({"ok": True, "tx_id": tx_id, "category_id": category_id})
 
 
-@app.route("/moneypit/categories/matches", methods=["GET"])
+@app.route("/categories/matches", methods=["GET"])
 def manage_category_matches():
     match_strings = db_client.get_match_strings_with_tx_counts()
     categories = db_client.get_categories()
@@ -460,26 +460,26 @@ def manage_category_matches():
     )
 
 
-@app.route("/moneypit/categories/matches/add", methods=["POST"])
+@app.route("/categories/matches/add", methods=["POST"])
 def add_category_match():
     match_string = request.form.get("match-string", "").strip()
     category_id = request.form.get("category-id", "").strip()
     if match_string and category_id:
         rows_updated = db_client.add_match_rule_and_apply(match_string, category_id)
         _logger.info(f"Added match rule '{match_string}' -> category_id={category_id}, {rows_updated} transactions backfilled")
-    return redirect("/moneypit/categories/matches")
+    return redirect("/categories/matches")
 
 
-@app.route("/moneypit/categories/matches/reassign", methods=["POST"])
+@app.route("/categories/matches/reassign", methods=["POST"])
 def reassign_category_match():
     match_id = request.form["match-id"]
     new_category_id = request.form["new-category-id"]
     rows_updated = db_client.reassign_match_string(match_id, new_category_id)
     _logger.info(f"Reassigned match_id={match_id} to category_id={new_category_id}, {rows_updated} transactions updated")
-    return redirect("/moneypit/categories/matches")
+    return redirect("/categories/matches")
 
 
-@app.route("/moneypit/categories", methods=["GET", "POST"])
+@app.route("/categories", methods=["GET", "POST"])
 def manage_categories():
 
     if request.method == "POST":

@@ -5,7 +5,7 @@
 
 {% block header_actions %}
 <!-- Date range filter -->
-<form method="get" action="/moneypit/sankey" class="flex items-center gap-2">
+<form method="get" action="/sankey" class="flex items-center gap-2">
   <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
   <input type="month" name="ts_start" value="{{ ts_start }}"
          class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5
@@ -20,7 +20,7 @@
   </button>
 </form>
 
-<a href="/moneypit/heatmap/months{% if ts_start or ts_end %}?{% if ts_start %}ts_start={{ ts_start }}{% endif %}{% if ts_start and ts_end %}&{% endif %}{% if ts_end %}ts_end={{ ts_end }}{% endif %}{% endif %}"
+<a href="/heatmap/months{% if ts_start or ts_end %}?{% if ts_start %}ts_start={{ ts_start }}{% endif %}{% if ts_start and ts_end %}&{% endif %}{% if ts_end %}ts_end={{ ts_end }}{% endif %}{% endif %}"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

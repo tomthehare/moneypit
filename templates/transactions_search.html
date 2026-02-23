@@ -172,7 +172,7 @@
     if (category) params.set('category', category);
 
     try {
-      const resp = await fetch(`/moneypit/api/transactions/search?${params}`, {
+      const resp = await fetch(`/api/transactions/search?${params}`, {
         signal: currentController.signal,
       });
       const data = await resp.json();
