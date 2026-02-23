@@ -33,80 +33,114 @@
 
 {% block content %}
 <!-- Date range bar -->
-<div class="flex items-center justify-between mb-5">
-  <div class="flex items-center gap-2 text-sm text-gray-400">
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-    </svg>
-    <span class="text-gray-200 font-medium">{{ date_start }}</span>
-    <span>to</span>
-    <span class="text-gray-200 font-medium">{{ date_end }}</span>
-  </div>
+<div class="mb-5" data-core-expenses="{{ 'Exclude' if core_expense_qualifier == 'Exclude' else '' }}">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2 text-sm text-gray-400">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <span class="text-gray-200 font-medium">{{ date_start }}</span>
+      <span>to</span>
+      <span class="text-gray-200 font-medium">{{ date_end }}</span>
+    </div>
 
-  <!-- Date range filter form -->
-  <form method="get" action="/moneypit/heatmap/months"
-        class="flex items-center gap-2">
-    <input type="hidden" name="core_expenses"
-           value="{{ 'Exclude' if core_expense_qualifier == 'Include' else '' }}">
-    <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
-    <input type="month" name="ts_start"
+    <!-- Date range filter form -->
+    <form method="get" action="/moneypit/heatmap/months"
+          class="flex items-center gap-2">
+      <input type="hidden" name="core_expenses"
+             value="{{ 'Exclude' if core_expense_qualifier == 'Include' else '' }}">
+      <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
+    <input type="month" name="ts_start" value="{{ ts_start }}"
            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
     <label class="text-xs text-gray-500 uppercase tracking-wide">To</label>
-    <input type="month" name="ts_end"
+    <input type="month" name="ts_end" value="{{ ts_end }}"
            class="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
-    <button type="submit"
-            class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
-      Apply
-    </button>
-  </form>
+      <button type="submit"
+              class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+        Apply
+      </button>
+    </form>
+  </div>
+
+  <!-- Preset buttons -->
+  <div class="flex items-center gap-2 flex-wrap">
+    <span class="text-xs text-gray-500 uppercase tracking-wide mr-1">Quick:</span>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="0">This month</button>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-1">Last month</button>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-3">Last 3 months</button>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-6">Last 6 months</button>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-12">Last year</button>
+  </div>
 </div>
 
-<!-- Heatmap table -->
-<div class="heatmap-wrapper bg-gray-900 rounded-xl border border-gray-800 shadow-lg">
-  <table class="heatmap-table w-full">
-    <thead>
-      <tr>
-        <th class="text-left">Category</th>
-        {% for date_key in heatmap_data_container.get_dates() %}
-        <th>{{ date_key }}</th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      <!-- Surpluses -->
-      <tr class="summary-row">
-        <td>Surpluses</td>
-        {% for date_key in heatmap_data_container.get_dates() %}
-        <td class="text-center text-emerald-400 font-semibold">
-          {{ heatmap_data_container.get_total_for_date(date_key, only_positive=True) }}
-        </td>
-        {% endfor %}
-      </tr>
+<!-- Income / Expenses / Total summary table -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden mb-5">
+  <div class="px-5 py-3 border-b border-gray-800">
+    <h3 class="text-sm font-semibold text-gray-200">Summary</h3>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-800">
+          <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-28"></th>
+          {% for date_key in heatmap_data_container.get_dates() %}
+          <th class="text-center px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ date_key }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800/60">
+        <tr class="hover:bg-gray-800/30">
+          <td class="px-5 py-2.5 text-emerald-400 font-semibold">Income</td>
+          {% for date_key in heatmap_data_container.get_dates() %}
+          <td class="px-4 py-2.5 text-center text-emerald-400 font-semibold">
+            {{ heatmap_data_container.get_total_for_date(date_key, only_positive=True) }}
+          </td>
+          {% endfor %}
+        </tr>
+        <tr class="hover:bg-gray-800/30">
+          <td class="px-5 py-2.5 text-rose-400 font-semibold">Expenses</td>
+          {% for date_key in heatmap_data_container.get_dates() %}
+          <td class="px-4 py-2.5 text-center text-rose-400 font-semibold">
+            {{ heatmap_data_container.get_total_for_date(date_key, only_negative=True) }}
+          </td>
+          {% endfor %}
+        </tr>
+        <tr class="border-t-2 border-gray-700 bg-gray-800/30">
+          <td class="px-5 py-2.5 text-gray-100 font-bold">Total</td>
+          {% for date_key in heatmap_data_container.get_dates() %}
+          <td class="px-4 py-2.5 text-center font-bold text-gray-100">
+            {{ heatmap_data_container.get_total_for_date(date_key) }}
+          </td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-      <!-- Deficits -->
-      <tr class="summary-row">
-        <td>Deficits</td>
-        {% for date_key in heatmap_data_container.get_dates() %}
-        <td class="text-center text-rose-400 font-semibold">
-          {{ heatmap_data_container.get_total_for_date(date_key, only_negative=True) }}
-        </td>
-        {% endfor %}
-      </tr>
-
-      <!-- Total -->
-      <tr class="summary-total">
-        <td>Total</td>
-        {% for date_key in heatmap_data_container.get_dates() %}
-        <td class="text-center">
-          {{ heatmap_data_container.get_total_for_date(date_key) }}
-        </td>
-        {% endfor %}
-      </tr>
-
-      <!-- Category rows -->
+<!-- Heatmap table (categories only) -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+  <div class="px-5 py-3 border-b border-gray-800">
+    <h3 class="text-sm font-semibold text-gray-200">Spending by Category</h3>
+  </div>
+  <div class="heatmap-wrapper">
+    <table class="heatmap-table w-full" id="heatmap-table">
+      <thead>
+        <tr>
+          <th class="text-left">Category</th>
+          {% for date_key in heatmap_data_container.get_dates() %}
+          <th>{{ date_key }}</th>
+          {% endfor %}
+          <th class="text-center heatmap-total-col cursor-pointer select-none hover:bg-gray-800/50 transition-colors" id="heatmap-total-header" title="Click to sort">
+            Total <span id="sort-indicator" class="text-brand-400">↓</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="heatmap-tbody">
       {% for cat in categories %}
-      <tr>
+      {% set row_total = heatmap_data_container.get_row_total(cat) %}
+      <tr data-total="{{ row_total }}">
         <td class="text-gray-300">{{ cat }}</td>
         {% for date_key in heatmap_data_container.get_dates() %}
           {% set rgb = heatmap_data_container.get_rgb(date_key, cat) %}
@@ -118,9 +152,62 @@
             </a>
           </td>
         {% endfor %}
+        <td class="text-right font-semibold pr-4 heatmap-total-cell {% if row_total < 0 %}text-rose-400{% elif row_total > 0 %}text-emerald-400{% else %}text-gray-400{% endif %}">{{ "{:,.2f}".format(row_total) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
+
+<script>
+  (function() {
+    const tbody = document.getElementById('heatmap-tbody');
+    const header = document.getElementById('heatmap-total-header');
+    const indicator = document.getElementById('sort-indicator');
+    let ascending = false;
+
+    function sortRows() {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const va = parseFloat(a.dataset.total);
+        const vb = parseFloat(b.dataset.total);
+        return ascending ? vb - va : va - vb;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+      indicator.textContent = ascending ? '↑' : '↓';
+    }
+
+    header.addEventListener('click', () => {
+      ascending = !ascending;
+      sortRows();
+    });
+
+    sortRows();
+  })();
+
+  (function() {
+    const container = document.querySelector('[data-core-expenses]');
+    const coreExpenses = container.dataset.coreExpenses === 'Exclude' ? 'Exclude' : '';
+    document.querySelectorAll('.date-preset').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const months = parseInt(this.dataset.months, 10);
+        const now = new Date();
+        // "Last N months" = N months including current, so start = current - (N-1)
+        const startOffset = (months < 0 && months !== -1) ? months + 1 : months;
+        const start = new Date(now.getFullYear(), now.getMonth() + startOffset, 1);
+        const end = months === -1
+          ? new Date(now.getFullYear(), now.getMonth(), 1)
+          : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        const params = new URLSearchParams({
+          ts_start: fmt(start),
+          ts_end: fmt(end)
+        });
+        if (coreExpenses) params.set('core_expenses', coreExpenses);
+        window.location = '/moneypit/heatmap/months?' + params;
+      });
+    });
+  })();
+</script>
 {% endblock %}

@@ -34,6 +34,13 @@ class DataHeatmap:
     def get_value(self, date_key, category):
         return self.the_matrix.get(date_key)[category]
 
+    def get_row_total(self, category):
+        """Sum of all values for this category across all dates (net; negative = net expense)."""
+        total = 0
+        for date_key in self.the_matrix:
+            total += self.the_matrix[date_key].get(category, 0)
+        return total
+
     def get_rgb(self, date_key, cat):
         return self.by_category[cat][date_key].get_rgb_string()
 
@@ -110,49 +117,84 @@ class DataHeatmap:
 
                 self.by_category[category][date] = Color(Color.WHITE)
 
-        for category in self.by_category:
-            entire_list = []
-            least_money_spent = None
-            most_money_spent = None
+        num_dates = len(self.the_matrix)
+        use_column_scale = num_dates <= 1
 
-            for date in self.by_category[category]:
-                money_value = self.the_matrix[date][category]
-                entire_list.append(money_value)
-                if least_money_spent is None or (
-                    money_value < 0 and money_value > least_money_spent
-                ):
-                    least_money_spent = money_value
+        if use_column_scale:
+            # Single month (or no dates): color by position within the column
+            for date in self.the_matrix:
+                col_data = self.the_matrix[date]
+                least = None
+                most = None
+                for cat in col_data:
+                    v = col_data[cat]
+                    if v < 0:
+                        if least is None or v > least:
+                            least = v
+                        if most is None or v < most:
+                            most = v
 
-                if most_money_spent is None or (
-                    money_value < 0 and money_value < most_money_spent
-                ):
-                    most_money_spent = money_value
+                for category in self.by_category:
+                    money_value = self.the_matrix[date].get(category, 0)
+                    if money_value < 0 and least is not None and most is not None and most < least:
+                        ratio = (money_value - least) / (most - least)
+                        hue = _HUE_LOW + ratio * (_HUE_HIGH - _HUE_LOW)
+                        lightness = _LIGHTNESS_LOW + ratio * (_LIGHTNESS_HIGH - _LIGHTNESS_LOW)
+                        color = Color(Color.RED)
+                        color.hue = hue
+                        color.saturation = _SATURATION
+                        color.set_lightness(lightness)
+                        self.by_category[category][date] = color
+                    elif money_value < 0:
+                        color = Color(Color.RED)
+                        color.hue = _HUE_LOW
+                        color.saturation = _SATURATION
+                        color.set_lightness((_LIGHTNESS_LOW + _LIGHTNESS_HIGH) / 2)
+                        self.by_category[category][date] = color
+                    elif money_value > 0:
+                        color = Color(Color.GREEN)
+                        color.hue = _HUE_SURPLUS
+                        color.saturation = _SATURATION
+                        color.set_lightness(_LIGHTNESS_SURPLUS)
+                        self.by_category[category][date] = color
+        else:
+            # Multiple months: color by position within the row (category over time)
+            for category in self.by_category:
+                least_money_spent = None
+                most_money_spent = None
 
-            for date in self.by_category[category]:
-                money_value = self.the_matrix[date][category]
-                if money_value < 0 and most_money_spent < least_money_spent:
-                    # Normalise: 0.0 = smallest spend in this category, 1.0 = largest
-                    ratio = (money_value - least_money_spent) / (most_money_spent - least_money_spent)
+                for date in self.by_category[category]:
+                    money_value = self.the_matrix[date][category]
+                    if least_money_spent is None or (
+                        money_value < 0 and money_value > least_money_spent
+                    ):
+                        least_money_spent = money_value
 
-                    hue = _HUE_LOW + ratio * (_HUE_HIGH - _HUE_LOW)
-                    lightness = _LIGHTNESS_LOW + ratio * (_LIGHTNESS_HIGH - _LIGHTNESS_LOW)
+                    if most_money_spent is None or (
+                        money_value < 0 and money_value < most_money_spent
+                    ):
+                        most_money_spent = money_value
 
-                    color = Color(Color.RED)
-                    color.hue = hue
-                    color.saturation = _SATURATION
-                    color.set_lightness(lightness)
-
-                    self.by_category[category][date] = color
-                elif money_value < 0 and most_money_spent == least_money_spent:
-                    # Only one data point — show a mid-intensity amber
-                    color = Color(Color.RED)
-                    color.hue = _HUE_LOW
-                    color.saturation = _SATURATION
-                    color.set_lightness((_LIGHTNESS_LOW + _LIGHTNESS_HIGH) / 2)
-                    self.by_category[category][date] = color
-                elif money_value > 0:
-                    color = Color(Color.GREEN)
-                    color.hue = _HUE_SURPLUS
-                    color.saturation = _SATURATION
-                    color.set_lightness(_LIGHTNESS_SURPLUS)
-                    self.by_category[category][date] = color
+                for date in self.by_category[category]:
+                    money_value = self.the_matrix[date][category]
+                    if money_value < 0 and most_money_spent is not None and least_money_spent is not None and most_money_spent < least_money_spent:
+                        ratio = (money_value - least_money_spent) / (most_money_spent - least_money_spent)
+                        hue = _HUE_LOW + ratio * (_HUE_HIGH - _HUE_LOW)
+                        lightness = _LIGHTNESS_LOW + ratio * (_LIGHTNESS_HIGH - _LIGHTNESS_LOW)
+                        color = Color(Color.RED)
+                        color.hue = hue
+                        color.saturation = _SATURATION
+                        color.set_lightness(lightness)
+                        self.by_category[category][date] = color
+                    elif money_value < 0 and (most_money_spent == least_money_spent or most_money_spent is None or least_money_spent is None):
+                        color = Color(Color.RED)
+                        color.hue = _HUE_LOW
+                        color.saturation = _SATURATION
+                        color.set_lightness((_LIGHTNESS_LOW + _LIGHTNESS_HIGH) / 2)
+                        self.by_category[category][date] = color
+                    elif money_value > 0:
+                        color = Color(Color.GREEN)
+                        color.hue = _HUE_SURPLUS
+                        color.saturation = _SATURATION
+                        color.set_lightness(_LIGHTNESS_SURPLUS)
+                        self.by_category[category][date] = color

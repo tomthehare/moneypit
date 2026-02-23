@@ -58,14 +58,18 @@ def heatmap_months():
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
     if request.args.get("ts_start"):
-        ts_start = get_timestamp_for_datekey(request.args.get("ts_start"))
+        ts_start_key = request.args.get("ts_start")
+        ts_start = get_timestamp_for_datekey(ts_start_key)
     else:
-        ts_start = get_timestamp_for_datekey(add_month(date_key_now, -6))
+        ts_start_key = add_month(date_key_now, -6)
+        ts_start = get_timestamp_for_datekey(ts_start_key)
 
     if request.args.get("ts_end"):
-        ts_end = get_timestamp_for_datekey(request.args.get("ts_end"))
+        ts_end_key = request.args.get("ts_end")
+        ts_end = get_timestamp_for_datekey(ts_end_key)
     else:
-        ts_end = get_timestamp_for_datekey(add_month(date_key_now, 1))
+        ts_end_key = add_month(date_key_now, 1)
+        ts_end = get_timestamp_for_datekey(ts_end_key)
 
     additional_ignored_categories = []
     if exclude_core_expenses:
@@ -83,6 +87,8 @@ def heatmap_months():
         "heatmap.html",
         date_start=format_timestamp(ts_start, "%B %d, %Y"),
         date_end=format_timestamp(ts_end, "%B %d, %Y"),
+        ts_start=ts_start_key,
+        ts_end=ts_end_key,
         heatmap_data_container=heatmap_data_container,
         categories=sorted([a[1] for a in filtered_categories]),
         core_expense_qualifier=core_expense_qualifier,
@@ -198,7 +204,7 @@ def render_transactions_page(date_key, category):
 
     for result in results:
         result["Timestamp"] = format_timestamp(result["Timestamp"], "%Y/%m/%d")
-        result["MoneySpent"] = format_money(abs(result["MoneySpent"]))
+        result["MoneySpent"] = format_money(result["MoneySpent"])
 
     return render_template(
         "transactions.html",
@@ -410,8 +416,18 @@ def api_search_transactions():
 
 @app.route("/moneypit/files", methods=["GET"])
 def list_files():
-    files = db_client.get_all_input_files()
-    return render_template("files.html", files=files)
+    all_files = db_client.get_all_input_files()
+    source_filter = request.args.get("source", "").strip()
+
+    for f in all_files:
+        if f.get("date_min_ts") and f.get("date_max_ts"):
+            f["date_range"] = format_timestamp(f["date_min_ts"], "%Y/%m/%d") + " – " + format_timestamp(f["date_max_ts"], "%Y/%m/%d")
+        else:
+            f["date_range"] = ""
+
+    files = [f for f in all_files if f["source_bank"] == source_filter] if source_filter else all_files
+    sources = sorted({f["source_bank"] for f in all_files}) if all_files else []
+    return render_template("files.html", files=files, sources=sources, source_filter=source_filter)
 
 
 @app.route("/moneypit/files/<int:file_id>", methods=["GET"])

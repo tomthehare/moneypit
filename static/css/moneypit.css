@@ -59,7 +59,7 @@
   text-align: center;
 }
 
-/* Summary rows (Surpluses / Deficits / Total) */
+/* Summary rows (Income / Expenses / Total) */
 .heatmap-table tr.summary-row td {
   background: #1e293b !important;
   font-weight: 600;
@@ -90,6 +90,19 @@
 .heatmap-table td.color-cell a:hover {
   opacity: 0.85;
   text-decoration: underline;
+}
+
+/* Sticky Total column (right side) */
+.heatmap-total-col,
+.heatmap-total-cell {
+  position: sticky;
+  right: 0;
+  background: #111827;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.heatmap-table thead .heatmap-total-col {
+  background: #0f172a;
 }
 
 /* Neutral cells (zero / missing) */

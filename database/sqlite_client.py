@@ -516,8 +516,10 @@ class SqliteClient:
             f.FileName,
             f.DateCreatedHuman,
             sb.Name AS SourceBank,
-            COUNT(tx.TxID) AS TxTotal,
-            SUM(CASE WHEN tx.TxCategoryID IS NULL AND tx.DateDeleted IS NULL THEN 1 ELSE 0 END) AS TxUncategorized
+            COUNT(CASE WHEN tx.DateDeleted IS NULL THEN tx.TxID END) AS TxTotal,
+            SUM(CASE WHEN tx.TxCategoryID IS NULL AND tx.DateDeleted IS NULL THEN 1 ELSE 0 END) AS TxUncategorized,
+            MIN(CASE WHEN tx.DateDeleted IS NULL THEN tx.TxDateTimestamp END) AS DateMinTs,
+            MAX(CASE WHEN tx.DateDeleted IS NULL THEN tx.TxDateTimestamp END) AS DateMaxTs
         FROM tblInputFile f
         INNER JOIN tblSourceBank sb ON sb.SourceBankID = f.SourceBankID
         LEFT JOIN tblTransaction tx ON tx.InputFileID = f.InputFileID
@@ -536,6 +538,8 @@ class SqliteClient:
                     "source_bank": r[3],
                     "tx_total": r[4],
                     "tx_uncategorized": r[5],
+                    "date_min_ts": r[6],
+                    "date_max_ts": r[7],
                 }
                 for r in results
             ]
