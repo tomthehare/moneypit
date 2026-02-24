@@ -132,7 +132,9 @@
     <table class="heatmap-table w-full" id="heatmap-table">
       <thead>
         <tr>
-          <th class="text-left">Category</th>
+          <th class="text-left heatmap-category-col cursor-pointer select-none hover:bg-gray-800/50 transition-colors" id="heatmap-category-header" title="Click to sort">
+            Category <span id="category-sort-indicator" class="text-gray-600">⇅</span>
+          </th>
           {% for date_key in heatmap_data_container.get_dates() %}
           <th>
             <a href="/moneypit/heatmap/months?ts_start={{ date_key }}&ts_end={{ date_key | add_month_filter }}{% if core_expenses_param %}&core_expenses={{ core_expenses_param }}{% endif %}"
@@ -147,7 +149,7 @@
       <tbody id="heatmap-tbody">
       {% for cat in categories %}
       {% set row_total = heatmap_data_container.get_row_total(cat) %}
-      <tr data-total="{{ row_total }}">
+      <tr data-total="{{ row_total }}" data-category="{{ cat }}">
         <td class="text-gray-300">{{ cat }}</td>
         {% for date_key in heatmap_data_container.get_dates() %}
           {% set rgb = heatmap_data_container.get_rgb(date_key, cat) %}
@@ -170,22 +172,42 @@
 <script>
   (function() {
     const tbody = document.getElementById('heatmap-tbody');
-    const header = document.getElementById('heatmap-total-header');
-    const indicator = document.getElementById('sort-indicator');
-    let ascending = false;
+    const totalHeader = document.getElementById('heatmap-total-header');
+    const totalIndicator = document.getElementById('sort-indicator');
+    const categoryHeader = document.getElementById('heatmap-category-header');
+    const categoryIndicator = document.getElementById('category-sort-indicator');
+    let sortBy = 'total';   // 'total' | 'category'
+    let ascending = false;  // total: false=high first; category: false=A-Z, true=Z-A
 
     function sortRows() {
       const rows = Array.from(tbody.querySelectorAll('tr'));
       rows.sort((a, b) => {
-        const va = parseFloat(a.dataset.total);
-        const vb = parseFloat(b.dataset.total);
-        return ascending ? vb - va : va - vb;
+        if (sortBy === 'total') {
+          const va = parseFloat(a.dataset.total);
+          const vb = parseFloat(b.dataset.total);
+          return ascending ? vb - va : va - vb;
+        } else {
+          const ca = (a.dataset.category || '').toLowerCase();
+          const cb = (b.dataset.category || '').toLowerCase();
+          const cmp = ca.localeCompare(cb);
+          return ascending ? -cmp : cmp;
+        }
       });
       rows.forEach(r => tbody.appendChild(r));
-      indicator.textContent = ascending ? '↑' : '↓';
+      totalIndicator.textContent = sortBy === 'total' ? (ascending ? '↑' : '↓') : '⇅';
+      totalIndicator.className = sortBy === 'total' ? 'text-brand-400' : 'text-gray-600';
+      categoryIndicator.textContent = sortBy === 'category' ? (ascending ? '↓' : '↑') : '⇅';
+      categoryIndicator.className = sortBy === 'category' ? 'text-brand-400' : 'text-gray-600';
     }
 
-    header.addEventListener('click', () => {
+    totalHeader.addEventListener('click', () => {
+      sortBy = 'total';
+      ascending = !ascending;
+      sortRows();
+    });
+
+    categoryHeader.addEventListener('click', () => {
+      sortBy = 'category';
       ascending = !ascending;
       sortRows();
     });
