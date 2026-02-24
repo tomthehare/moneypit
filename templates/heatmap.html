@@ -71,6 +71,7 @@
     <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-3">Last 3 months</button>
     <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-6">Last 6 months</button>
     <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-months="-12">Last year</button>
+    <button type="button" class="date-preset px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors" data-preset="this-year">This year</button>
   </div>
 </div>
 
@@ -197,19 +198,25 @@
     const coreExpenses = container.dataset.coreExpenses === 'Exclude' ? 'Exclude' : '';
     document.querySelectorAll('.date-preset').forEach(btn => {
       btn.addEventListener('click', function() {
-        const months = parseInt(this.dataset.months, 10);
-        const now = new Date();
-        // "Last N months" = N months including current, so start = current - (N-1)
-        const startOffset = (months < 0 && months !== -1) ? months + 1 : months;
-        const start = new Date(now.getFullYear(), now.getMonth() + startOffset, 1);
-        const end = months === -1
-          ? new Date(now.getFullYear(), now.getMonth(), 1)
-          : new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-        const params = new URLSearchParams({
-          ts_start: fmt(start),
-          ts_end: fmt(end)
-        });
+        const preset = this.dataset.preset;
+        let tsStart, tsEnd;
+        if (preset === 'this-year') {
+          const y = new Date().getFullYear();
+          tsStart = y + '-01';
+          tsEnd = (y + 1) + '-01';
+        } else {
+          const months = parseInt(this.dataset.months, 10);
+          const now = new Date();
+          const startOffset = (months < 0 && months !== -1) ? months + 1 : months;
+          const start = new Date(now.getFullYear(), now.getMonth() + startOffset, 1);
+          const end = months === -1
+            ? new Date(now.getFullYear(), now.getMonth(), 1)
+            : new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          const fmt = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+          tsStart = fmt(start);
+          tsEnd = fmt(end);
+        }
+        const params = new URLSearchParams({ ts_start: tsStart, ts_end: tsEnd });
         if (coreExpenses) params.set('core_expenses', coreExpenses);
         window.location = '/moneypit/heatmap/months?' + params;
       });
