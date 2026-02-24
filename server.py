@@ -160,7 +160,7 @@ def sankey():
     })
 
     return render_template(
-        "sankey.html",
+        "breakdown.html",
         sankey_data=sankey_data,
         date_start=format_timestamp(ts_start, "%B %d, %Y"),
         date_end=format_timestamp(ts_end, "%B %d, %Y"),

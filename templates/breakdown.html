@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Sankey{% endblock %}
-{% block page_title %}Spending Flow{% endblock %}
+{% block title %}Spending Breakdown{% endblock %}
+{% block page_title %}Spending Breakdown{% endblock %}
 
 {% block header_actions %}
 <!-- Date range filter -->
@@ -50,9 +50,9 @@
   <span class="ml-1 text-gray-400">Total tracked: <span class="text-gray-200 font-semibold">${{ "{:,.2f}".format(total_spend) }}</span></span>
 </div>
 
-<!-- Sankey chart -->
+<!-- Bar chart (sorted by amount, descending) -->
 <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg p-4">
-  <div id="sankey-chart" style="height: 640px;"></div>
+  <div id="breakdown-chart" style="min-height: 400px;"></div>
 </div>
 
 {% endblock %}
@@ -61,7 +61,13 @@
 <script>
   const raw = {{ sankey_data | safe }};
 
-  // Build a colour palette for the category nodes (skip index 0 = Total Spend)
+  // Pair categories with amounts (nodes[0] is "Total Spend", nodes[1..] are categories)
+  const pairs = raw.nodes.slice(1).map((cat, i) => [cat, raw.values[i]]);
+  pairs.sort((a, b) => b[1] - a[1]);  // Descending by amount
+
+  const categories = pairs.map(p => p[0]);
+  const amounts = pairs.map(p => p[1]);
+
   const palette = [
     '#f97316', '#fb923c', '#fbbf24', '#a3e635', '#34d399',
     '#22d3ee', '#38bdf8', '#818cf8', '#c084fc', '#f472b6',
@@ -69,55 +75,43 @@
     '#fdba74', '#d8b4fe', '#a5b4fc', '#6ee7b7', '#fca5a5',
   ];
 
-  const nodeColors = raw.nodes.map((_, i) => {
-    if (i === 0) return 'rgba(100, 116, 139, 0.9)';              // Total Spend — slate
-    return palette[(i - 1) % palette.length];
-  });
-
-  const linkColors = raw.sources.map((src, i) => {
-    const targetColor = nodeColors[raw.targets[i]];
-    // Make links semi-transparent versions of target node color
-    return targetColor.replace('0.9)', '0.25)').replace('rgba', 'rgba');
-  });
-
   const data = [{
-    type: 'sankey',
-    orientation: 'v',
-    arrangement: 'snap',
-    node: {
-      pad: 20,
-      thickness: 24,
-      line: { color: 'rgba(0,0,0,0)', width: 0 },
-      label: raw.nodes,
-      color: nodeColors,
-      hovertemplate: '<b>%{label}</b><br>$%{value:,.2f}<extra></extra>',
+    type: 'bar',
+    orientation: 'h',
+    x: amounts,
+    y: categories,
+    marker: {
+      color: categories.map((_, i) => palette[i % palette.length]),
+      line: { color: 'rgba(255,255,255,0.15)', width: 1 },
     },
-    link: {
-      source: raw.sources,
-      target: raw.targets,
-      value: raw.values,
-      label: raw.link_labels,
-      color: linkColors,
-      hovertemplate: '%{label}<extra></extra>',
-    },
+    text: amounts.map(a => '$' + a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+    textposition: 'outside',
+    textfont: { color: '#94a3b8', size: 12 },
+    hovertemplate: '<b>%{y}</b><br>$%{x:,.2f}<extra></extra>',
   }];
 
   const layout = {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor:  'rgba(0,0,0,0)',
-    font: {
-      family: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-      size: 12,
-      color: '#e2e8f0',
+    font: { family: 'ui-sans-serif, system-ui, sans-serif', size: 13, color: '#e2e8f0' },
+    margin: { l: 140, r: 80, t: 20, b: 40 },
+    xaxis: {
+      gridcolor: 'rgba(255,255,255,0.06)',
+      zerolinecolor: 'rgba(255,255,255,0.1)',
+      tickformat: '$,.0f',
+      title: '',
     },
-    margin: { l: 10, r: 10, t: 10, b: 10 },
+    yaxis: {
+      autorange: 'reversed',  // Top category at top
+      gridcolor: 'transparent',
+      tickfont: { size: 12 },
+    },
+    bargap: 0.35,
+    showlegend: false,
   };
 
-  const config = {
-    displayModeBar: false,
-    responsive: true,
-  };
+  const config = { displayModeBar: false, responsive: true };
 
-  Plotly.newPlot('sankey-chart', data, layout, config);
+  Plotly.newPlot('breakdown-chart', data, layout, config);
 </script>
 {% endblock %}
