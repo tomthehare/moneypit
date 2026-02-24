@@ -161,7 +161,10 @@
             </a>
           </td>
         {% endfor %}
-        <td class="text-right font-semibold pr-4 heatmap-total-cell {% if row_total < 0 %}text-rose-400{% elif row_total > 0 %}text-emerald-400{% else %}text-gray-400{% endif %}">{{ "{:,.2f}".format(row_total) }}</td>
+        <td class="text-right font-semibold pr-4 heatmap-total-cell {% if row_total < 0 %}text-rose-400{% elif row_total > 0 %}text-emerald-400{% else %}text-gray-400{% endif %}">
+            <a href="/moneypit/heatmap/transactions?ts_start={{ ts_start }}&ts_end={{ ts_end }}&category={{ cat }}{% if core_expenses_param %}&core_expenses={{ core_expenses_param }}{% endif %}"
+               class="block hover:underline">{{ "{:,.2f}".format(row_total) }}</a>
+          </td>
       </tr>
       {% endfor %}
     </tbody>

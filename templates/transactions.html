@@ -4,7 +4,7 @@
 {% block page_title %}{{ category | capitalize }}{% endblock %}
 
 {% block header_actions %}
-<a href="/moneypit/heatmap/months"
+<a href="/moneypit/heatmap/months{% if ts_start_key and ts_end_key %}?ts_start={{ ts_start_key }}&ts_end={{ ts_end_key }}{% if core_expenses_param %}&core_expenses={{ core_expenses_param }}{% endif %}{% endif %}"
    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
           border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
   <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -73,6 +73,9 @@
             <input type="hidden" name="current-category" value="{{ category }}">
             <input type="hidden" name="tx-id" value="{{ datum['ID'] }}">
             <input type="hidden" name="date-key" value="{{ date_key }}">
+            <input type="hidden" name="ts_start_key" value="{{ ts_start_key }}">
+            <input type="hidden" name="ts_end_key" value="{{ ts_end_key }}">
+            <input type="hidden" name="core_expenses_param" value="{{ core_expenses_param }}">
             <select name="category-id"
                     class="bg-gray-800 border border-gray-700 text-gray-200 text-xs rounded-lg px-2 py-1
                            focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
@@ -97,6 +100,9 @@
             <input type="hidden" name="currentcategory" value="{{ category }}">
             <input type="hidden" name="txid" value="{{ datum['ID'] }}">
             <input type="hidden" name="datekey" value="{{ date_key }}">
+            <input type="hidden" name="ts_start_key" value="{{ ts_start_key }}">
+            <input type="hidden" name="ts_end_key" value="{{ ts_end_key }}">
+            <input type="hidden" name="core_expenses_param" value="{{ core_expenses_param }}">
             <button type="submit"
                     title="Delete transaction"
                     class="p-1.5 rounded-lg text-gray-600 hover:text-rose-400 hover:bg-rose-950/40

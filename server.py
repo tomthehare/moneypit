@@ -195,14 +195,36 @@ def heatmap_week_transactions():
 
 @app.route("/moneypit/heatmap/transactions")
 def heatmap_month_transactions():
-    return render_transactions_page(
-        request.args.get("date-key"), request.args.get("category")
-    )
+    ts_start_key = request.args.get("ts_start")
+    ts_end_key = request.args.get("ts_end")
+    date_key = request.args.get("date-key")
+    category = request.args.get("category")
+
+    if ts_start_key and ts_end_key and category:
+        ts_start = get_timestamp_for_datekey(ts_start_key)
+        ts_end = get_timestamp_for_datekey(ts_end_key)
+        return render_transactions_page(
+            category=category,
+            ts_start_key=ts_start_key,
+            ts_end_key=ts_end_key,
+            core_expenses_param=request.args.get("core_expenses", ""),
+        )
+    elif date_key and category:
+        return render_transactions_page(date_key=date_key, category=category)
+    else:
+        return redirect("/moneypit/heatmap/months")
 
 
-def render_transactions_page(date_key, category):
-    ts_start = TimeObserver.get_timestamp_from_date_string(date_key, "%Y-%m")
-    ts_end = TimeObserver.get_timestamp_from_date_string(add_month(date_key), "%Y-%m")
+def render_transactions_page(category, date_key=None, ts_start_key=None, ts_end_key=None, core_expenses_param=None):
+    if ts_start_key and ts_end_key:
+        ts_start = get_timestamp_for_datekey(ts_start_key)
+        ts_end = get_timestamp_for_datekey(ts_end_key)
+        date_key = ts_start_key
+    else:
+        ts_start = TimeObserver.get_timestamp_from_date_string(date_key, "%Y-%m")
+        ts_end = TimeObserver.get_timestamp_from_date_string(add_month(date_key), "%Y-%m")
+        ts_start_key = date_key
+        ts_end_key = add_month(date_key)
 
     logging.debug("%s to %s" % (ts_start, ts_end))
 
@@ -222,30 +244,43 @@ def render_transactions_page(date_key, category):
         category=category,
         categories_list=db_client.get_categories(),
         date_key=date_key,
+        ts_start_key=ts_start_key,
+        ts_end_key=ts_end_key,
+        core_expenses_param=core_expenses_param or "",
     )
 
 
 @app.route("/moneypit/transaction/category", methods=["POST"])
 def change_tx_category():
     tx_id = request.form["tx-id"]
-    date_key = request.form["date-key"]
     category_id = request.form["category-id"]
     current_category = request.form["current-category"]
+    ts_start_key = request.form.get("ts_start_key")
+    ts_end_key = request.form.get("ts_end_key")
+    date_key = request.form.get("date-key")
+    core_expenses_param = request.form.get("core_expenses_param", "")
 
     db_client.update_category(tx_id, category_id)
 
-    return render_transactions_page(date_key, current_category)
+    if ts_start_key and ts_end_key:
+        return render_transactions_page(category=current_category, ts_start_key=ts_start_key, ts_end_key=ts_end_key, core_expenses_param=core_expenses_param)
+    return render_transactions_page(category=current_category, date_key=date_key, core_expenses_param=core_expenses_param)
 
 
 @app.route("/moneypit/transaction/delete", methods=["POST"])
 def delete_tx():
     tx_id = request.form["txid"]
-    date_key = request.form["datekey"]
     current_category = request.form["currentcategory"]
+    ts_start_key = request.form.get("ts_start_key")
+    ts_end_key = request.form.get("ts_end_key")
+    date_key = request.form.get("datekey")
+    core_expenses_param = request.form.get("core_expenses_param", "")
 
     db_client.delete_transaction(tx_id)
 
-    return render_transactions_page(date_key, current_category)
+    if ts_start_key and ts_end_key:
+        return render_transactions_page(category=current_category, ts_start_key=ts_start_key, ts_end_key=ts_end_key, core_expenses_param=core_expenses_param)
+    return render_transactions_page(category=current_category, date_key=date_key, core_expenses_param=core_expenses_param)
 
 
 class UploadFileForm(FlaskForm):
