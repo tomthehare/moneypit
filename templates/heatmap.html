@@ -85,7 +85,10 @@
         <tr class="border-b border-gray-800">
           <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-28"></th>
           {% for date_key in heatmap_data_container.get_dates() %}
-          <th class="text-center px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">{{ date_key }}</th>
+          <th class="text-center px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            <a href="/moneypit/heatmap/months?ts_start={{ date_key }}&ts_end={{ date_key | add_month_filter }}{% if core_expenses_param %}&core_expenses={{ core_expenses_param }}{% endif %}"
+               class="cursor-pointer text-gray-300 hover:text-white hover:underline transition-colors">{{ date_key }}</a>
+          </th>
           {% endfor %}
         </tr>
       </thead>
@@ -130,7 +133,10 @@
         <tr>
           <th class="text-left">Category</th>
           {% for date_key in heatmap_data_container.get_dates() %}
-          <th>{{ date_key }}</th>
+          <th>
+            <a href="/moneypit/heatmap/months?ts_start={{ date_key }}&ts_end={{ date_key | add_month_filter }}{% if core_expenses_param %}&core_expenses={{ core_expenses_param }}{% endif %}"
+               class="cursor-pointer text-gray-300 hover:text-white hover:underline transition-colors block">{{ date_key }}</a>
+          </th>
           {% endfor %}
           <th class="text-center heatmap-total-col cursor-pointer select-none hover:bg-gray-800/50 transition-colors" id="heatmap-total-header" title="Click to sort">
             Total <span id="sort-indicator" class="text-brand-400">↓</span>

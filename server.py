@@ -45,6 +45,11 @@ CORE_EXPENSE_CATEGORIES = [
 ]
 
 
+@app.template_filter("add_month_filter")
+def add_month_filter(date_key, month_count=1):
+    return add_month(date_key, month_count)
+
+
 def get_adjusted_offset_seconds():
     now = datetime.now(pytz.timezone("America/New_York"))
     return now.utcoffset().total_seconds()
@@ -92,6 +97,7 @@ def heatmap_months():
         heatmap_data_container=heatmap_data_container,
         categories=sorted([a[1] for a in filtered_categories]),
         core_expense_qualifier=core_expense_qualifier,
+        core_expenses_param=core_expense_qualifier if exclude_core_expenses else "",
     )
 
 
