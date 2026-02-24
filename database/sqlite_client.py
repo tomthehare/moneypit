@@ -697,3 +697,16 @@ class SqliteClient:
             connection.execute_sql(sql)
         finally:
             connection.wrap_it_up()
+
+    def delete_file_and_transactions(self, file_id):
+        """Permanently delete all transactions for this file and the input file record."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                f"DELETE FROM tblTransaction WHERE InputFileID = {int(file_id)};"
+            )
+            connection.execute_sql(
+                f"DELETE FROM tblInputFile WHERE InputFileID = {int(file_id)};"
+            )
+        finally:
+            connection.wrap_it_up()

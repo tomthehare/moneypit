@@ -487,6 +487,15 @@ def view_file(file_id):
     )
 
 
+@app.route("/moneypit/files/<int:file_id>/delete", methods=["POST"])
+def delete_file_and_transactions(file_id):
+    files = db_client.get_all_input_files()
+    if not any(f["file_id"] == file_id for f in files):
+        return redirect("/moneypit/files")
+    db_client.delete_file_and_transactions(file_id)
+    return redirect("/moneypit/files")
+
+
 @app.route("/moneypit/api/transaction/<int:tx_id>/category", methods=["POST"])
 def api_update_tx_category(tx_id):
     data = request.get_json()

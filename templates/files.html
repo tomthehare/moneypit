@@ -82,15 +82,27 @@
           {% endif %}
         </td>
         <td class="px-5 py-3 text-right">
-          <a href="/moneypit/files/{{ f.file_id }}"
-             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                    border border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white
-                    opacity-0 group-hover:opacity-100 transition-all">
-            View
-            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </a>
+          <div class="inline-flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+            <a href="/moneypit/files/{{ f.file_id }}"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                      border border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white">
+              View
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <form method="post" action="/moneypit/files/{{ f.file_id }}/delete" class="inline"
+                  onsubmit="return confirm('Delete all {{ f.tx_total }} transaction(s) from this file and remove the file record? This cannot be undone.');">
+              <button type="submit"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                             border border-red-900/60 text-red-400 hover:bg-red-950/50 hover:text-red-300">
+                Delete
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}
