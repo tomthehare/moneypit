@@ -1,9 +1,12 @@
-from flask import Flask, request, render_template, redirect, jsonify
+import os
+import shutil
+
+from flask import Flask, request, render_template, redirect, jsonify, session, url_for
 from datetime import datetime
 from json2html import *
 import pytz
 from flask_wtf import FlaskForm
-from wtforms import FileField, SubmitField
+from wtforms import FileField, SubmitField, SelectField
 
 from categories.categorizer import Categorizer
 from data_containers.data_heatmap import DataHeatmap
@@ -288,6 +291,14 @@ class UploadFileForm(FlaskForm):
     submit = SubmitField("Upload file")
 
 
+SOURCE_CHOICES = [
+    ("Chase", "Chase"),
+    ("CapitalOne", "Capital One"),
+    ("Barclays", "Barclays"),
+    ("AmericanExpress", "American Express"),
+]
+
+
 @app.route("/moneypit/transaction/upload", methods=["POST", "GET"])
 def upload_file():
     latest_source_dates = db_client.get_latest_source_dates()
@@ -299,12 +310,63 @@ def upload_file():
         file.save(filepath)
 
         input_file = InputFile(db_client)
-
-        input_file.insert_file(filepath)
-
-        return render_file_transactions_page()
+        try:
+            input_file.insert_file(filepath)
+            return render_file_transactions_page()
+        except Exception as e:
+            if "No idea how to parse it:" in str(e):
+                session["upload_pending_path"] = filepath
+                session["upload_pending_filename"] = file.filename
+                return redirect(url_for("select_source"))
+            raise
     return render_template(
         "file_input.html", form=form, latest_source_dates=latest_source_dates
+    )
+
+
+@app.route("/moneypit/transaction/upload/select-source", methods=["GET", "POST"])
+def select_source():
+    filepath = session.get("upload_pending_path")
+    original_filename = session.get("upload_pending_filename", "file")
+
+    if not filepath or not os.path.isfile(filepath):
+        session.pop("upload_pending_path", None)
+        session.pop("upload_pending_filename", None)
+        return redirect(url_for("upload_file"))
+
+    if request.method == "POST":
+        source_name = request.form.get("source")
+        if source_name not in [c[0] for c in SOURCE_CHOICES]:
+            return render_template(
+                "select_source.html",
+                original_filename=original_filename,
+                source_choices=SOURCE_CHOICES,
+                error="Please select a valid source.",
+            )
+
+        date_str = TimeObserver.get_now_date_string()
+        timestamp_str = datetime.now().strftime("%H%M%S")
+        new_filename = f"{source_name}_{date_str}_{timestamp_str}.csv"
+        new_filepath = "/tmp/" + new_filename
+
+        try:
+            shutil.copy2(filepath, new_filepath)
+            input_file = InputFile(db_client)
+            input_file.insert_file(new_filepath)
+        finally:
+            try:
+                os.remove(filepath)
+            except OSError:
+                pass
+
+        session.pop("upload_pending_path", None)
+        session.pop("upload_pending_filename", None)
+        return render_file_transactions_page()
+
+    return render_template(
+        "select_source.html",
+        original_filename=original_filename,
+        source_choices=SOURCE_CHOICES,
     )
 
 

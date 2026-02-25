@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Select Source{% endblock %}
+{% block page_title %}Select Bank Source{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-800">
+      <h2 class="text-sm font-semibold text-gray-200">Source Not Recognized</h2>
+      <p class="text-xs text-gray-500 mt-0.5">
+        We couldn't determine the source from the filename <span class="font-mono text-gray-400">{{ original_filename }}</span>.
+        Please select the bank or account type:
+      </p>
+    </div>
+    <div class="p-5">
+      {% if error %}
+      <p class="mb-4 text-sm text-red-400">{{ error }}</p>
+      {% endif %}
+      <form method="post" action="/moneypit/transaction/upload/select-source">
+        <label for="source" class="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Source</label>
+        <select name="source" id="source" required
+                class="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-4 py-3
+                       focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent mb-4">
+          <option value="">Choose a source…</option>
+          {% for value, label in source_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mb-4">
+          The file will be renamed to <span class="font-mono text-gray-400">SOURCE_date_timestamp.csv</span> for processing.
+        </p>
+        <div class="flex gap-3">
+          <button type="submit"
+                  class="flex-1 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                         rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+            Continue &amp; Process
+          </button>
+          <a href="/moneypit/transaction/upload"
+             class="px-4 py-2.5 border border-gray-700 text-gray-400 hover:bg-gray-800 text-sm font-medium rounded-lg transition-colors">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
