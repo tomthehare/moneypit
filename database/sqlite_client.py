@@ -104,10 +104,13 @@ class SqliteClient:
                 "TxMemoRaw"	TEXT,
                 "TxCategoryID"	INTEGER,
                 "InputFileID"	INTEGER,
+                "SourceBankID"	INTEGER,
+                "DateDeleted"	TEXT,
                 FOREIGN KEY("InputFileID") REFERENCES "tblInputFile"("InputFileID"),
                 FOREIGN KEY("TxCategoryID") REFERENCES "tblCategory"("CategoryID"),
+                FOREIGN KEY("SourceBankID") REFERENCES "tblSourceBank"("SourceBankID"),
                 PRIMARY KEY("TxID" AUTOINCREMENT),
-                UNIQUE(TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, InputFileID)
+                UNIQUE(TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, SourceBankID)
             );
             """
             connection.execute_sql(table_sql)
@@ -140,6 +143,92 @@ class SqliteClient:
             connection.execute_sql(sql)
             connection.wrap_it_up()
             print("Migrated tblTransaction.DateDeleted")
+
+        # Add SourceBankID and enforce unique (denom, date, memo) per source across files
+        cols = self.get_columns_for_table("tblTransaction")
+        if cols and "SourceBankID" not in cols:
+            connection = ConnectionWrapper(self.database_name)
+            try:
+                connection.execute_sql(
+                    "ALTER TABLE tblTransaction ADD COLUMN SourceBankID INTEGER;"
+                )
+                connection.execute_sql("""
+                    UPDATE tblTransaction SET SourceBankID = (
+                        SELECT SourceBankID FROM tblInputFile
+                        WHERE tblInputFile.InputFileID = tblTransaction.InputFileID
+                    );
+                """)
+            finally:
+                connection.wrap_it_up()
+            print("Migrated tblTransaction.SourceBankID added and backfilled")
+
+        # Recreate tblTransaction with UNIQUE(..., SourceBankID) instead of UNIQUE(..., InputFileID)
+        create_sql = self._get_table_creation_sql("tblTransaction")
+        if create_sql and "TxMemoRaw, InputFileID)" in create_sql:
+            self._migrate_tbltransaction_unique_per_source()
+
+    def _get_table_creation_sql(self, table_name):
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection._cursor.execute(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                (table_name,),
+            )
+            row = connection._cursor.fetchone()
+            return row[0] if row else None
+        finally:
+            connection.wrap_it_up()
+
+    def _migrate_tbltransaction_unique_per_source(self):
+        """Recreate tblTransaction with UNIQUE(..., SourceBankID) so one row per (denom, date, memo, source)."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql("""
+                CREATE TABLE tblTransaction_new (
+                    TxID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    TxDenomination REAL,
+                    TxDateHuman TEXT,
+                    TxDateTimestamp INTEGER,
+                    TxMemoRaw TEXT,
+                    TxCategoryID INTEGER,
+                    InputFileID INTEGER,
+                    SourceBankID INTEGER,
+                    DateDeleted TEXT,
+                    FOREIGN KEY(InputFileID) REFERENCES tblInputFile(InputFileID),
+                    FOREIGN KEY(TxCategoryID) REFERENCES tblCategory(CategoryID),
+                    FOREIGN KEY(SourceBankID) REFERENCES tblSourceBank(SourceBankID),
+                    UNIQUE(TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, SourceBankID)
+                );
+            """)
+            # Copy one row per (denom, date, memo, source), keeping smallest TxID; and all rows with NULL source
+            connection.execute_sql("""
+                INSERT INTO tblTransaction_new
+                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
+                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
+                FROM tblTransaction t
+                INNER JOIN (
+                    SELECT TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, SourceBankID, MIN(TxID) AS KeptTxID
+                    FROM tblTransaction
+                    WHERE SourceBankID IS NOT NULL
+                    GROUP BY TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, SourceBankID
+                ) u ON t.TxID = u.KeptTxID
+            """)
+            connection.execute_sql("""
+                INSERT INTO tblTransaction_new
+                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
+                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
+                FROM tblTransaction t
+                INNER JOIN (
+                    SELECT TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, MIN(TxID) AS KeptTxID
+                    FROM tblTransaction WHERE SourceBankID IS NULL
+                    GROUP BY TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw
+                ) u ON t.TxID = u.KeptTxID
+            """)
+            connection.execute_sql("DROP TABLE tblTransaction;")
+            connection.execute_sql("ALTER TABLE tblTransaction_new RENAME TO tblTransaction;")
+        finally:
+            connection.wrap_it_up()
+        print("Migrated tblTransaction: unique per (denom, date, memo, source) across files")
 
     def get_columns_for_table(self, table_name):
         sql = f"""
@@ -237,24 +326,74 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
+    def get_source_bank_id_for_file(self, file_id):
+        """Return SourceBankID for the given InputFileID, or None."""
+        sql = f"""
+        SELECT SourceBankID FROM tblInputFile WHERE InputFileID = {int(file_id)}
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            results = connection.get_results()
+            return results[0][0] if results else None
+        finally:
+            connection.wrap_it_up()
+
+    def transaction_exists_for_source(
+        self, denomination, date_human, date_timestamp, memo_raw, source_bank_id
+    ):
+        """True if a non-deleted transaction with this (denom, date, memo) already exists for this source (any file)."""
+        safe_memo = memo_raw.replace("'", "''")
+        safe_date = date_human.replace("'", "''")
+        sql = f"""
+        SELECT 1 FROM tblTransaction tx
+        INNER JOIN tblInputFile f ON tx.InputFileID = f.InputFileID
+        WHERE f.SourceBankID = {int(source_bank_id)}
+          AND tx.TxDenomination = {denomination}
+          AND tx.TxDateHuman = '{safe_date}'
+          AND tx.TxDateTimestamp = {int(date_timestamp)}
+          AND tx.TxMemoRaw = '{safe_memo}'
+          AND tx.DateDeleted IS NULL
+        LIMIT 1
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return len(connection.get_results()) > 0
+        finally:
+            connection.wrap_it_up()
+
     def insert_transaction(
         self, denomination, date_human, date_timestamp, memo_raw, file_id
     ):
         memo_raw = memo_raw.replace("'", "")
 
+        source_bank_id = self.get_source_bank_id_for_file(file_id)
+        if source_bank_id is None:
+            return
+        if self.transaction_exists_for_source(
+            denomination, date_human, date_timestamp, memo_raw, source_bank_id
+        ):
+            return
+
+        date_safe = date_human.replace("'", "''")
         sql = f"""
         INSERT OR IGNORE INTO tblTransaction(
             TxDenomination,
             TxDateHuman,
             TxDateTimestamp,
             TxMemoRaw,
-            InputFileID
+            TxCategoryID,
+            InputFileID,
+            SourceBankID
         ) VALUES (
             {denomination},
-            '{date_human}',
+            '{date_safe}',
             {date_timestamp},
-            '{memo_raw}',
-            {file_id}
+            '{memo_raw.replace("'", "''")}',
+            NULL,
+            {file_id},
+            {source_bank_id}
         );
         """
 
