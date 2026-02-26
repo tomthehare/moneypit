@@ -15,6 +15,12 @@
 {% endblock %}
 
 {% block content %}
+<!-- Save status toast -->
+<div id="save-toast"
+     class="fixed bottom-5 right-5 z-50 hidden items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl
+            text-sm font-medium transition-all">
+</div>
+
 <!-- Page context bar -->
 <div class="flex items-center gap-2 text-sm text-gray-400 mb-5">
   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -56,9 +62,21 @@
           {{ datum['MoneySpent'] }}
         </td>
 
-        <!-- Memo -->
-        <td class="px-4 py-3 text-gray-200 max-w-xs truncate">
-          {{ datum['Memo'] }}
+        <!-- Memo (editable; custom takes precedence; raw as sub-text when different) -->
+        <td class="px-4 py-3 max-w-xs group/memo" data-tx-id="{{ datum['ID'] }}">
+          <div class="memo-display cursor-pointer hover:bg-gray-800/60 rounded px-1 -mx-1 py-0.5 -my-0.5 min-h-[1.5rem]"
+               title="{{ datum['MemoRaw'] }}"
+               data-custom-memo="{{ datum['Memo'] if datum['Memo'] != datum['MemoRaw'] else '' }}"
+               data-memo-raw="{{ datum['MemoRaw'] }}">
+            <span class="text-gray-200 block truncate">{{ datum['Memo'] }}</span>
+            {% if datum['Memo'] != datum['MemoRaw'] %}
+            <span class="text-gray-500 text-xs block truncate">{{ datum['MemoRaw'] }}</span>
+            {% endif %}
+          </div>
+          <div class="memo-edit hidden">
+            <input type="text" class="memo-input w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1"
+                   placeholder="Add a note…" maxlength="500">
+          </div>
         </td>
 
         <!-- Source -->
@@ -126,4 +144,76 @@
     </tbody>
   </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function showToast(message, isError = false) {
+    const toast = document.getElementById('save-toast');
+    toast.textContent = message;
+    toast.className = [
+      'fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl',
+      'text-sm font-medium transition-all',
+      isError
+        ? 'bg-rose-950 border border-rose-800 text-rose-300'
+        : 'bg-gray-800 border border-gray-700 text-gray-200'
+    ].join(' ');
+    toast.classList.remove('hidden');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  document.querySelectorAll('.memo-display').forEach(display => {
+    display.addEventListener('click', function () {
+      const cell = this.closest('td');
+      const txId = cell.dataset.txId;
+      const customMemo = this.dataset.customMemo || '';
+      const input = cell.querySelector('.memo-input');
+
+      cell.querySelector('.memo-display').classList.add('hidden');
+      cell.querySelector('.memo-edit').classList.remove('hidden');
+      input.value = customMemo;
+      input.focus();
+
+      const save = async () => {
+        const newVal = input.value.trim();
+        cell.querySelector('.memo-edit').classList.add('hidden');
+        cell.querySelector('.memo-display').classList.remove('hidden');
+
+        try {
+          const resp = await fetch(`/moneypit/api/transaction/${txId}/custom-memo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ custom_memo: newVal }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data.ok) {
+            showToast(newVal ? 'Memo saved' : 'Memo cleared');
+            setTimeout(() => location.reload(), 400);
+          } else {
+            showToast('Failed to save memo', true);
+          }
+        } catch (err) {
+          showToast('Failed to save memo — ' + err.message, true);
+        }
+      };
+
+      input.onblur = () => {
+        if (input.value.trim()) save();
+        else {
+          cell.querySelector('.memo-edit').classList.add('hidden');
+          cell.querySelector('.memo-display').classList.remove('hidden');
+        }
+      };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.onblur = null; save(); }
+        if (e.key === 'Escape') {
+          cell.querySelector('.memo-edit').classList.add('hidden');
+          cell.querySelector('.memo-display').classList.remove('hidden');
+          input.onblur = null;
+        }
+      };
+    });
+  });
+</script>
 {% endblock %}

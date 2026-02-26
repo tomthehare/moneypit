@@ -102,6 +102,7 @@ class SqliteClient:
                 "TxDateHuman"	TEXT,
                 "TxDateTimestamp"	INTEGER,
                 "TxMemoRaw"	TEXT,
+                "TxCustomMemo"	TEXT,
                 "TxCategoryID"	INTEGER,
                 "InputFileID"	INTEGER,
                 "SourceBankID"	INTEGER,
@@ -167,6 +168,28 @@ class SqliteClient:
         if create_sql and "TxMemoRaw, InputFileID)" in create_sql:
             self._migrate_tbltransaction_unique_per_source()
 
+        # Add TxCustomMemo for user notes that override display
+        cols = self.get_columns_for_table("tblTransaction")
+        if cols:
+            if "CustomMemo" in cols and "TxCustomMemo" not in cols:
+                connection = ConnectionWrapper(self.database_name)
+                try:
+                    connection.execute_sql(
+                        "ALTER TABLE tblTransaction RENAME COLUMN CustomMemo TO TxCustomMemo;"
+                    )
+                finally:
+                    connection.wrap_it_up()
+                print("Migrated tblTransaction.CustomMemo -> TxCustomMemo")
+            elif "TxCustomMemo" not in cols:
+                connection = ConnectionWrapper(self.database_name)
+                try:
+                    connection.execute_sql(
+                        "ALTER TABLE tblTransaction ADD COLUMN TxCustomMemo TEXT;"
+                    )
+                finally:
+                    connection.wrap_it_up()
+                print("Migrated tblTransaction.TxCustomMemo")
+
     def _get_table_creation_sql(self, table_name):
         connection = ConnectionWrapper(self.database_name)
         try:
@@ -190,6 +213,7 @@ class SqliteClient:
                     TxDateHuman TEXT,
                     TxDateTimestamp INTEGER,
                     TxMemoRaw TEXT,
+                    TxCustomMemo TEXT,
                     TxCategoryID INTEGER,
                     InputFileID INTEGER,
                     SourceBankID INTEGER,
@@ -203,8 +227,8 @@ class SqliteClient:
             # Copy one row per (denom, date, memo, source), keeping smallest TxID; and all rows with NULL source
             connection.execute_sql("""
                 INSERT INTO tblTransaction_new
-                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
-                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
+                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCustomMemo, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
+                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, NULL, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
                 FROM tblTransaction t
                 INNER JOIN (
                     SELECT TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, SourceBankID, MIN(TxID) AS KeptTxID
@@ -215,8 +239,8 @@ class SqliteClient:
             """)
             connection.execute_sql("""
                 INSERT INTO tblTransaction_new
-                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
-                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
+                  (TxID, TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, TxCustomMemo, TxCategoryID, InputFileID, SourceBankID, DateDeleted)
+                SELECT t.TxID, t.TxDenomination, t.TxDateHuman, t.TxDateTimestamp, t.TxMemoRaw, NULL, t.TxCategoryID, t.InputFileID, t.SourceBankID, t.DateDeleted
                 FROM tblTransaction t
                 INNER JOIN (
                     SELECT TxDenomination, TxDateHuman, TxDateTimestamp, TxMemoRaw, MIN(TxID) AS KeptTxID
@@ -421,11 +445,11 @@ class SqliteClient:
             connection.wrap_it_up()
 
     def get_uncategorized_transactions(self):
-        sql = f"""
-        SELECT TxID, TxDenomination, TxMemoRaw, TxDateHuman, sb.Name
+        sql = """
+        SELECT TxID, TxDenomination, TxMemoRaw, TxCustomMemo, TxDateHuman, sb.Name
         FROM tblTransaction tx
-        INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
-        INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
+        INNER JOIN tblInputFile inputFile ON inputFile.InputFileID = tx.InputFileID
+        INNER JOIN tblSourceBank sb ON sb.SourceBankID = inputFile.SourceBankID
         WHERE TxCategoryID IS NULL AND tx.DateDeleted IS NULL
         ORDER BY TxDateTimestamp ASC
         """
@@ -439,25 +463,30 @@ class SqliteClient:
 
     def get_transaction(self, tx_id):
         sql = f"""
-                SELECT TxID AS txID, TxDenomination as denomination, TxMemoRaw as memo, TxDateHuman as dateHuman, sb.Name as bankName
-                FROM tblTransaction tx
-                INNER JOIN tblInputFile inputFile ON InputFile.InputFileID = tx.InputFileID
-                INNER JOIN tblSourceBank sb ON inputFile.SourceBankID = sb.SourceBankID
-                WHERE TxID = {int(tx_id)}
-                
-                """
+        SELECT TxID, TxDenomination, TxMemoRaw, TxCustomMemo, TxDateHuman, sb.Name
+        FROM tblTransaction tx
+        INNER JOIN tblInputFile inputFile ON inputFile.InputFileID = tx.InputFileID
+        INNER JOIN tblSourceBank sb ON sb.SourceBankID = inputFile.SourceBankID
+        WHERE TxID = {int(tx_id)}
+        """
 
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
             if results:
+                r = results[0]
+                memo_raw = r[2]
+                custom_memo = r[3]
+                display_memo = custom_memo if custom_memo else memo_raw
                 return {
-                    "txID": results[0][0],
-                    "denomination": results[0][1],
-                    "memo": results[0][2],
-                    "dateHuman": results[0][3],
-                    "bankName": results[0][4],
+                    "txID": r[0],
+                    "denomination": r[1],
+                    "memo": display_memo,
+                    "memo_raw": memo_raw,
+                    "custom_memo": custom_memo,
+                    "dateHuman": r[4],
+                    "bankName": r[5],
                 }
             else:
                 return []
@@ -551,6 +580,7 @@ class SqliteClient:
             tx.TxDenomination,
             tx.TxDateHuman,
             tx.TxMemoRaw,
+            tx.TxCustomMemo,
             COALESCE(cat.Name, '') AS CategoryName,
             COALESCE(sb.Name, '') AS SourceBankName
         FROM tblTransaction tx
@@ -565,23 +595,27 @@ class SqliteClient:
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
-            return [
-                {
+            out = []
+            for r in results:
+                memo_raw = r[3]
+                custom_memo = r[4]
+                display_memo = custom_memo if custom_memo else memo_raw
+                out.append({
                     "ID": r[0],
                     "MoneySpent": r[1],
                     "Date": r[2],
-                    "Memo": r[3],
-                    "CategoryName": r[4],
-                    "SourceBankName": r[5],
-                }
-                for r in results
-            ]
+                    "Memo": display_memo,
+                    "MemoRaw": memo_raw,
+                    "CategoryName": r[5],
+                    "SourceBankName": r[6],
+                })
+            return out
         finally:
             connection.wrap_it_up()
 
     def get_data_for_time_slice(self, date_start, date_end, category_filter=""):
         sql = f"""
-        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxID, sb.Name AS SourceBankName
+        SELECT cat.Name, TxDenomination, TxDateTimestamp, TxMemoRaw, TxCustomMemo, TxID, sb.Name AS SourceBankName
         FROM tblTransaction tx
         INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
         INNER JOIN tblInputFile inputFile ON inputFile.InputFileID = tx.InputFileID
@@ -601,18 +635,21 @@ class SqliteClient:
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
-
-            return [
-                {
+            out = []
+            for a in results:
+                memo_raw = a[3]
+                custom_memo = a[4]
+                display_memo = custom_memo if custom_memo else memo_raw
+                out.append({
                     "CategoryName": a[0],
                     "MoneySpent": a[1],
                     "Timestamp": a[2],
-                    "Memo": a[3],
-                    "ID": a[4],
-                    "SourceBankName": a[5],
-                }
-                for a in results
-            ]
+                    "Memo": display_memo,
+                    "MemoRaw": memo_raw,
+                    "ID": a[5],
+                    "SourceBankName": a[6],
+                })
+            return out
         finally:
             connection.wrap_it_up()
 
@@ -623,6 +660,19 @@ class SqliteClient:
         WHERE TxID = {tx_id}
         """
 
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+        finally:
+            connection.wrap_it_up()
+
+    def update_custom_memo(self, tx_id, custom_memo):
+        safe = (custom_memo or "").strip().replace("'", "''")
+        sql = f"""
+        UPDATE tblTransaction
+        SET TxCustomMemo = {'NULL' if not safe else f"'{safe}'"}
+        WHERE TxID = {int(tx_id)}
+        """
         connection = ConnectionWrapper(self.database_name)
         try:
             connection.execute_sql(sql)
@@ -692,6 +742,7 @@ class SqliteClient:
             tx.TxDenomination,
             tx.TxDateHuman,
             tx.TxMemoRaw,
+            tx.TxCustomMemo,
             tx.TxCategoryID,
             cat.Name AS CategoryName,
             tx.DateDeleted
@@ -704,18 +755,23 @@ class SqliteClient:
         try:
             connection.execute_sql(sql)
             results = connection.get_results()
-            return [
-                {
+            out = []
+            for r in results:
+                memo_raw = r[3]
+                custom_memo = r[4] if len(r) > 4 else None
+                display_memo = custom_memo if custom_memo else memo_raw
+                out.append({
                     "tx_id": r[0],
                     "denomination": r[1],
                     "date": r[2],
-                    "memo": r[3],
-                    "category_id": r[4],
-                    "category_name": r[5] or "",
-                    "deleted": r[6] is not None,
-                }
-                for r in results
-            ]
+                    "memo": display_memo,
+                    "memo_raw": memo_raw,
+                    "custom_memo": custom_memo,
+                    "category_id": r[5],
+                    "category_name": (r[6] or ""),
+                    "deleted": r[7] is not None,
+                })
+            return out
         finally:
             connection.wrap_it_up()
 

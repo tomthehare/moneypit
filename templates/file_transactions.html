@@ -66,9 +66,21 @@
           {% if tx.denomination < 0 %}-{% endif %}${{ "%.2f" | format(tx.denomination | abs) }}
         </td>
 
-        <!-- Memo -->
-        <td class="px-4 py-2.5 text-gray-200 text-xs max-w-xs truncate" title="{{ tx.memo }}">
-          {{ tx.memo }}
+        <!-- Memo (custom_memo takes precedence; memo_raw as sub-text when set) -->
+        <td class="px-4 py-2.5 max-w-xs group/memo" data-tx-id="{{ tx.tx_id }}">
+          <div class="memo-display cursor-pointer hover:bg-gray-800/60 rounded px-1 -mx-1 py-0.5 -my-0.5 min-h-[1.5rem]"
+               title="{{ tx.memo_raw }}"
+               data-custom-memo="{{ tx.custom_memo or '' }}"
+               data-memo-raw="{{ tx.memo_raw }}">
+            <span class="text-gray-200 text-xs block truncate">{{ tx.memo }}</span>
+            {% if tx.custom_memo and tx.memo_raw %}
+            <span class="text-gray-500 text-xs block truncate">{{ tx.memo_raw }}</span>
+            {% endif %}
+          </div>
+          <div class="memo-edit hidden">
+            <input type="text" class="memo-input w-full bg-gray-800 border border-gray-600 text-gray-200 text-xs rounded px-2 py-1"
+                   placeholder="Add a note…" maxlength="500">
+          </div>
         </td>
 
         <!-- Category — inline select, saves on change -->
@@ -165,6 +177,60 @@
       setTimeout(() => error.classList.add('hidden'), 3000);
     }
   }
+
+  // Memo inline edit
+  document.querySelectorAll('.memo-display').forEach(display => {
+    display.addEventListener('click', function () {
+      const cell = this.closest('td');
+      const txId = cell.dataset.txId;
+      const customMemo = this.dataset.customMemo || '';
+      const input = cell.querySelector('.memo-input');
+
+      cell.querySelector('.memo-display').classList.add('hidden');
+      cell.querySelector('.memo-edit').classList.remove('hidden');
+      input.value = customMemo;
+      input.focus();
+
+      const save = async () => {
+        const newVal = input.value.trim();
+        cell.querySelector('.memo-edit').classList.add('hidden');
+        cell.querySelector('.memo-display').classList.remove('hidden');
+
+        try {
+          const resp = await fetch(`/moneypit/api/transaction/${txId}/custom-memo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ custom_memo: newVal }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data.ok) {
+            showToast(newVal ? 'Memo saved' : 'Memo cleared');
+            setTimeout(() => location.reload(), 400);
+          } else {
+            showToast('Failed to save memo', true);
+          }
+        } catch (err) {
+          showToast('Failed to save memo — ' + err.message, true);
+        }
+      };
+
+      input.onblur = () => {
+        if (input.value.trim()) save();
+        else {
+          cell.querySelector('.memo-edit').classList.add('hidden');
+          cell.querySelector('.memo-display').classList.remove('hidden');
+        }
+      };
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.onblur = null; save(); }
+        if (e.key === 'Escape') {
+          cell.querySelector('.memo-edit').classList.add('hidden');
+          cell.querySelector('.memo-display').classList.remove('hidden');
+          input.onblur = null;
+        }
+      };
+    });
+  });
 
   document.querySelectorAll('.tx-category-select').forEach(select => {
     select.addEventListener('change', async function () {

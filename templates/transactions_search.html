@@ -111,7 +111,7 @@
     const idx = text.toLowerCase().indexOf(query.toLowerCase());
     if (idx === -1) return escHtml(text);
     return escHtml(text.slice(0, idx))
-      + '<mark class="bg-brand-900/60 text-brand-300 rounded px-0.5">'
+      + '<mark class="bg-emerald-500/40 text-emerald-100 rounded px-0.5">'
       + escHtml(text.slice(idx, idx + query.length))
       + '</mark>'
       + escHtml(text.slice(idx + query.length));
@@ -135,6 +135,8 @@
       const amtClass = isNeg ? 'text-rose-400' : 'text-emerald-400';
       const amt = formatMoney(tx.MoneySpent);
       const memo = highlightMatch(tx.Memo, query);
+      const memoSub = (tx.MemoRaw && tx.Memo !== tx.MemoRaw)
+        ? `<span class="text-gray-500 text-xs block truncate">${escHtml(tx.MemoRaw)}</span>` : '';
       const cat = tx.CategoryName
         ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700">${escHtml(tx.CategoryName)}</span>`
         : `<span class="text-amber-500 text-xs italic">uncategorized</span>`;
@@ -143,7 +145,7 @@
         <td class="px-4 py-2.5 text-gray-600 font-mono text-xs">${tx.ID}</td>
         <td class="px-4 py-2.5 text-gray-400 font-mono text-xs whitespace-nowrap">${escHtml(tx.Date)}</td>
         <td class="px-4 py-2.5 text-right font-semibold font-mono text-xs whitespace-nowrap ${amtClass}">${amt}</td>
-        <td class="px-4 py-2.5 text-gray-200 text-xs max-w-xs">${memo}</td>
+        <td class="px-4 py-2.5 text-gray-200 text-xs max-w-xs">${memo}${memoSub}</td>
         <td class="px-4 py-2.5">${cat}</td>
         <td class="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">${escHtml(tx.SourceBankName)}</td>
       </tr>`;

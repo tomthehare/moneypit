@@ -37,7 +37,7 @@
     </div>
 
     <!-- Date range filter form -->
-    <form method="get" action="/moneypit/sankey"
+    <form method="get" action="/moneypit/graphs"
           class="flex items-center gap-2">
       <label class="text-xs text-gray-500 uppercase tracking-wide">From</label>
       <input type="month" name="ts_start" value="{{ ts_start }}"
@@ -50,6 +50,17 @@
         Apply
       </button>
     </form>
+  </div>
+
+  <!-- Graph picker -->
+  <div class="flex items-center gap-2 mb-3">
+    <span class="text-xs text-gray-500 uppercase tracking-wide mr-2">Graph:</span>
+    <button type="button" id="graph-bar" class="graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-brand-600 border-brand-500 text-white">
+      Bar
+    </button>
+    <button type="button" id="graph-stacked" class="graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
+      Stacked over time
+    </button>
   </div>
 
   <!-- Quick preset buttons -->
@@ -74,6 +85,7 @@
 {% block scripts %}
 <script>
   const raw = {{ sankey_data | safe }};
+  const timeSeriesRaw = {{ time_series_data | safe }};
 
   // Pair categories with amounts (nodes[0] is "Total Spend", nodes[1..] are categories)
   const pairs = raw.nodes.slice(1).map((cat, i) => [cat, raw.values[i]]);
@@ -89,44 +101,123 @@
     '#fdba74', '#d8b4fe', '#a5b4fc', '#6ee7b7', '#fca5a5',
   ];
 
-  const data = [{
-    type: 'bar',
-    orientation: 'h',
-    x: amounts,
-    y: categories,
-    marker: {
-      color: categories.map((_, i) => palette[i % palette.length]),
-      line: { color: 'rgba(255,255,255,0.15)', width: 1 },
-    },
-    text: amounts.map(a => '$' + a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
-    textposition: 'outside',
-    textfont: { color: '#94a3b8', size: 12 },
-    hovertemplate: '<b>%{y}</b><br>$%{x:,.2f}<extra></extra>',
-  }];
-
-  const layout = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor:  'rgba(0,0,0,0)',
-    font: { family: 'ui-sans-serif, system-ui, sans-serif', size: 13, color: '#e2e8f0' },
-    margin: { l: 140, r: 80, t: 20, b: 40 },
-    xaxis: {
-      gridcolor: 'rgba(255,255,255,0.06)',
-      zerolinecolor: 'rgba(255,255,255,0.1)',
-      tickformat: '$,.0f',
-      title: '',
-    },
-    yaxis: {
-      autorange: 'reversed',  // Top category at top
-      gridcolor: 'transparent',
-      tickfont: { size: 12 },
-    },
-    bargap: 0.35,
-    showlegend: false,
-  };
-
   const config = { displayModeBar: false, responsive: true };
 
-  Plotly.newPlot('breakdown-chart', data, layout, config);
+  function renderBarChart() {
+    const data = [{
+      type: 'bar',
+      orientation: 'h',
+      x: amounts,
+      y: categories,
+      marker: {
+        color: categories.map((_, i) => palette[i % palette.length]),
+        line: { color: 'rgba(255,255,255,0.15)', width: 1 },
+      },
+      text: amounts.map(a => '$' + a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })),
+      textposition: 'outside',
+      textfont: { color: '#94a3b8', size: 12 },
+      hovertemplate: '<b>%{y}</b><br>$%{x:,.2f}<extra></extra>',
+    }];
+
+    const layout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor:  'rgba(0,0,0,0)',
+      font: { family: 'ui-sans-serif, system-ui, sans-serif', size: 13, color: '#e2e8f0' },
+      margin: { l: 140, r: 80, t: 20, b: 40 },
+      xaxis: {
+        gridcolor: 'rgba(255,255,255,0.06)',
+        zerolinecolor: 'rgba(255,255,255,0.1)',
+        tickformat: '$,.0f',
+        title: '',
+      },
+      yaxis: {
+        autorange: 'reversed',
+        gridcolor: 'transparent',
+        tickfont: { size: 12 },
+      },
+      bargap: 0.35,
+      showlegend: false,
+    };
+
+    Plotly.newPlot('breakdown-chart', data, layout, config);
+  }
+
+  function renderStackedAreaChart() {
+    const months = timeSeriesRaw.months || [];
+    const cats = timeSeriesRaw.categories || [];
+    const dataObj = timeSeriesRaw.data || {};
+
+    if (months.length === 0 || cats.length === 0) {
+      Plotly.newPlot('breakdown-chart', [{ type: 'scatter', x: [], y: [], mode: 'lines' }], {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { family: 'ui-sans-serif, system-ui, sans-serif', size: 13, color: '#e2e8f0' },
+        margin: { l: 60, r: 40, t: 20, b: 60 },
+        xaxis: { gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.1)', tickformat: '$,.0f' },
+      }, config);
+      return;
+    }
+
+    // Plotly stacked area: each trace is fill: 'tonexty', stackgroup: 'one'
+    const traces = cats.map((cat, i) => ({
+      type: 'scatter',
+      x: months,
+      y: dataObj[cat] || months.map(() => 0),
+      name: cat,
+      mode: 'lines',
+      line: { width: 0.5, color: palette[i % palette.length] },
+      fill: 'tonexty',
+      stackgroup: 'one',
+    }));
+
+    const layout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor:  'rgba(0,0,0,0)',
+      font: { family: 'ui-sans-serif, system-ui, sans-serif', size: 13, color: '#e2e8f0' },
+      margin: { l: 60, r: 40, t: 20, b: 80 },
+      xaxis: {
+        gridcolor: 'rgba(255,255,255,0.06)',
+        zerolinecolor: 'rgba(255,255,255,0.1)',
+        tickangle: -45,
+        tickfont: { size: 11 },
+      },
+      yaxis: {
+        gridcolor: 'rgba(255,255,255,0.06)',
+        zerolinecolor: 'rgba(255,255,255,0.1)',
+        tickformat: '$,.0f',
+        title: 'Spending',
+      },
+      legend: {
+        orientation: 'h',
+        y: 1.15,
+        yanchor: 'bottom',
+        font: { size: 11 },
+      },
+      hovermode: 'x unified',
+    };
+
+    Plotly.newPlot('breakdown-chart', traces, layout, config);
+  }
+
+  // Graph picker
+  let currentGraph = 'bar';
+  document.getElementById('graph-bar').addEventListener('click', function() {
+    if (currentGraph === 'bar') return;
+    currentGraph = 'bar';
+    document.getElementById('graph-bar').className = 'graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-brand-600 border-brand-500 text-white';
+    document.getElementById('graph-stacked').className = 'graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors';
+    renderBarChart();
+  });
+  document.getElementById('graph-stacked').addEventListener('click', function() {
+    if (currentGraph === 'stacked') return;
+    currentGraph = 'stacked';
+    document.getElementById('graph-stacked').className = 'graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors bg-brand-600 border-brand-500 text-white';
+    document.getElementById('graph-bar').className = 'graph-picker px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors';
+    renderStackedAreaChart();
+  });
+
+  renderBarChart();
 
   // Quick date presets
   document.querySelectorAll('.date-preset').forEach(btn => {
@@ -150,7 +241,7 @@
         tsEnd = fmt(end);
       }
       const params = new URLSearchParams({ ts_start: tsStart, ts_end: tsEnd });
-      window.location = '/moneypit/sankey?' + params;
+      window.location = '/moneypit/graphs?' + params;
     });
   });
 </script>

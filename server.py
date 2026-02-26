@@ -17,6 +17,7 @@ from utility.time_helper import (
     get_timestamp_for_datekey,
     add_month,
     get_datekey_for_timestamp,
+    get_date_keys_for_timestamp_range,
     timestamp_now,
     get_week_number_for_timestamp,
     get_monday_timestamp_for_week_number,
@@ -104,8 +105,8 @@ def heatmap_months():
     )
 
 
-@app.route("/moneypit/sankey")
-def sankey():
+@app.route("/moneypit/graphs")
+def graphs():
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
     if request.args.get("ts_start"):
@@ -162,9 +163,28 @@ def sankey():
         "link_labels": link_labels,
     })
 
+    # Time series: per-month per-category amounts for stacked area chart
+    # Sort categories by total descending so largest bands are at bottom
+    month_range = get_date_keys_for_timestamp_range(ts_start, ts_end)
+    time_series_months = month_range
+    time_series_categories = sorted(expense_cats.keys(), key=lambda c: expense_cats[c], reverse=True)
+    time_series_data = {
+        cat: [
+            round(abs(heatmap_data_container.the_matrix.get(m, {}).get(cat, 0)), 2)
+            for m in month_range
+        ]
+        for cat in time_series_categories
+    }
+    time_series_json = json.dumps({
+        "months": time_series_months,
+        "categories": time_series_categories,
+        "data": time_series_data,
+    })
+
     return render_template(
         "breakdown.html",
         sankey_data=sankey_data,
+        time_series_data=time_series_json,
         date_start=format_timestamp(ts_start, "%B %d, %Y"),
         date_end=format_timestamp(ts_end, "%B %d, %Y"),
         ts_start=ts_start_key,
@@ -381,15 +401,16 @@ def render_uncategorized_transactions_group_page():
     category_guess = None
     total_remaining = len(open_transactions)
     if len(open_transactions) > 0:
-        first_memo = open_transactions[0][2]
+        first_memo_raw = open_transactions[0][2]
 
-        # Find every other transaction that has the same memo
-        for tx_id, denomination, memo, date, source in open_transactions:
-            if memo == first_memo:
-                transaction_group.append((tx_id, denomination, memo, date, source))
+        # Find every other transaction that has the same memo (group by raw bank description)
+        for tx_id, denomination, memo_raw, custom_memo, date, source in open_transactions:
+            if memo_raw == first_memo_raw:
+                display_memo = custom_memo if custom_memo else memo_raw
+                transaction_group.append((tx_id, denomination, display_memo, date, source))
                 tx_ids.append(tx_id)
 
-        category_guess = categorizer.guess_best_category(first_memo)
+        category_guess = categorizer.guess_best_category(first_memo_raw)
         _logger.info("Guessed category for group: " + str(category_guess))
 
     if category_guess:
@@ -411,14 +432,15 @@ def render_file_transactions_page():
     categorizer = Categorizer(db_client)
 
     open_transactions_categorized = []
-    for tx_id, denomination, memo, date, source in open_transactions:
-        category_guess = categorizer.guess_best_category(memo)
+    for tx_id, denomination, memo_raw, custom_memo, date, source in open_transactions:
+        display_memo = custom_memo if custom_memo else memo_raw
+        category_guess = categorizer.guess_best_category(memo_raw)
 
         category_name = ""
         if category_guess is not None:
             category_name = category_guess["category_name"]
         open_transactions_categorized.append(
-            (tx_id, denomination, memo, date, source, category_name)
+            (tx_id, denomination, display_memo, date, source, category_name)
         )
 
     return render_template(
@@ -476,10 +498,10 @@ def save_category_for_tx_group():
 
     # Find the category string since all we received was a transaction ID
     tx_data = db_client.get_transaction(tx_ids[0])
-    memo = tx_data["memo"]
+    memo_raw = tx_data.get("memo_raw") or tx_data["memo"]
 
     # Make note of it for the future so it will show up next time
-    db_client.insert_memo_to_category(memo, category_id)
+    db_client.insert_memo_to_category(memo_raw, category_id)
 
     return render_uncategorized_transactions_group_page()
 
@@ -566,6 +588,16 @@ def api_update_tx_category(tx_id):
         return jsonify({"ok": False, "error": "missing category_id"}), 400
     db_client.update_category(tx_id, int(category_id))
     return jsonify({"ok": True, "tx_id": tx_id, "category_id": category_id})
+
+
+@app.route("/moneypit/api/transaction/<int:tx_id>/custom-memo", methods=["POST"])
+def api_update_tx_custom_memo(tx_id):
+    data = request.get_json()
+    custom_memo = data.get("custom_memo")
+    if custom_memo is None:
+        return jsonify({"ok": False, "error": "missing custom_memo"}), 400
+    db_client.update_custom_memo(tx_id, custom_memo)
+    return jsonify({"ok": True, "tx_id": tx_id, "custom_memo": custom_memo})
 
 
 @app.route("/moneypit/categories/matches", methods=["GET"])
