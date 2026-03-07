@@ -42,12 +42,6 @@ _logger.addHandler(handler)
 coloredlogs.install(level="DEBUG")
 
 IGNORED_CATEGORIES = ["credit card payment", "account transfers"]
-CORE_EXPENSE_CATEGORIES = [
-    "daycare",
-    "mortgage",
-    "insurance",
-    "renovation",
-]
 
 
 @app.template_filter("add_month_filter")
@@ -62,8 +56,9 @@ def get_adjusted_offset_seconds():
 
 @app.route("/moneypit/heatmap/months")
 def heatmap_months():
-    exclude_core_expenses = request.args.get("core_expenses") == "Exclude"
-    core_expense_qualifier = "Include" if exclude_core_expenses else "Exclude"
+    core_expenses_param = request.args.get("core_expenses", "")
+    exclude_core = core_expenses_param == "Exclude"
+    only_core = core_expenses_param == "Only"
 
     date_key_now = get_datekey_for_timestamp(timestamp_now())
 
@@ -81,11 +76,16 @@ def heatmap_months():
         ts_end_key = add_month(date_key_now, 1)
         ts_end = get_timestamp_for_datekey(ts_end_key)
 
+    core_expense_names = db_client.get_core_expense_category_names()
     additional_ignored_categories = []
-    if exclude_core_expenses:
-        additional_ignored_categories = CORE_EXPENSE_CATEGORIES
+    if exclude_core:
+        additional_ignored_categories = core_expense_names
 
-    filtered_categories = get_filtered_categories(additional_ignored_categories)
+    filtered_categories = get_filtered_categories(
+        additional_ignored_categories,
+        only_core_expenses=only_core,
+        core_expense_names=core_expense_names,
+    )
 
     logging.debug("looking up data with %d -> %d" % (ts_start, ts_end))
     results = db_client.get_data_for_time_slice(ts_start, ts_end)
@@ -101,8 +101,7 @@ def heatmap_months():
         ts_end=ts_end_key,
         heatmap_data_container=heatmap_data_container,
         categories=sorted([a[1] for a in filtered_categories]),
-        core_expense_qualifier=core_expense_qualifier,
-        core_expenses_param=core_expense_qualifier if exclude_core_expenses else "",
+        core_expenses_param=core_expenses_param,
     )
 
 
@@ -196,8 +195,9 @@ def graphs():
 
 @app.route("/moneypit/heatmap/weeks")
 def heatmap_week_transactions():
-    exclude_core_expenses = request.args.get("core_expenses") == "Exclude"
-    core_expense_qualifier = "Include" if exclude_core_expenses else "Exclude"
+    core_expenses_param = request.args.get("core_expenses", "")
+    exclude_core = core_expenses_param == "Exclude"
+    only_core = core_expenses_param == "Only"
 
     current_week = get_week_number_for_timestamp(timestamp_now())
 
@@ -207,11 +207,16 @@ def heatmap_week_transactions():
 
     ts_end = timestamp_now()
 
+    core_expense_names = db_client.get_core_expense_category_names()
     additional_ignored_categories = []
-    if exclude_core_expenses:
-        additional_ignored_categories = CORE_EXPENSE_CATEGORIES
+    if exclude_core:
+        additional_ignored_categories = core_expense_names
 
-    filtered_categories = get_filtered_categories(additional_ignored_categories)
+    filtered_categories = get_filtered_categories(
+        additional_ignored_categories,
+        only_core_expenses=only_core,
+        core_expense_names=core_expense_names,
+    )
 
     logging.debug("looking up data with %d -> %d" % (ts_start, ts_end))
     results = db_client.get_data_for_time_slice(ts_start, ts_end)
@@ -234,7 +239,11 @@ def heatmap_month_transactions():
             core_expenses_param=request.args.get("core_expenses", ""),
         )
     elif date_key and category:
-        return render_transactions_page(date_key=date_key, category=category)
+        return render_transactions_page(
+            date_key=date_key,
+            category=category,
+            core_expenses_param=request.args.get("core_expenses", ""),
+        )
     else:
         return redirect("/moneypit/heatmap/months")
 
@@ -461,11 +470,20 @@ def show_uncategorized_transactions():
     return render_file_transactions_page()
 
 
-def get_filtered_categories(additional_ignored_categories=None):
+def get_filtered_categories(
+    additional_ignored_categories=None,
+    only_core_expenses=False,
+    core_expense_names=None,
+):
     if not additional_ignored_categories:
         additional_ignored_categories = []
+    if core_expense_names is None:
+        core_expense_names = db_client.get_core_expense_category_names()
 
     categories = db_client.get_categories()
+
+    if only_core_expenses:
+        return [a for a in categories if a[1] in core_expense_names]
 
     return [
         a
@@ -641,6 +659,37 @@ def reassign_category_match():
     rows_updated = db_client.reassign_match_string(match_id, new_category_id)
     _logger.info(f"Reassigned match_id={match_id} to category_id={new_category_id}, {rows_updated} transactions updated")
     return redirect("/moneypit/categories/matches")
+
+
+@app.route("/moneypit/categories/core-expenses", methods=["GET"])
+def manage_core_expenses():
+    core_expenses = db_client.get_core_expense_categories()
+    all_categories = db_client.get_categories()
+    core_ids = {c[0] for c in core_expenses}
+    available_categories = [c for c in all_categories if c[0] not in core_ids]
+    return render_template(
+        "core_expenses.html",
+        core_expenses=core_expenses,
+        available_categories=available_categories,
+    )
+
+
+@app.route("/moneypit/categories/core-expenses/add", methods=["POST"])
+def add_core_expense():
+    category_id = request.form.get("category-id", "").strip()
+    if category_id:
+        db_client.add_core_expense_category(category_id)
+        _logger.info(f"Added category_id={category_id} as core expense")
+    return redirect(url_for("manage_core_expenses"))
+
+
+@app.route("/moneypit/categories/core-expenses/remove", methods=["POST"])
+def remove_core_expense():
+    category_id = request.form.get("category-id", "").strip()
+    if category_id:
+        db_client.remove_core_expense_category(category_id)
+        _logger.info(f"Removed category_id={category_id} from core expenses")
+    return redirect(url_for("manage_core_expenses"))
 
 
 @app.route("/moneypit/categories", methods=["GET", "POST"])

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Core Expenses{% endblock %}
+{% block page_title %}Manage Core Expenses{% endblock %}
+
+{% block header_actions %}
+<a href="/moneypit/heatmap/months"
+   class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium
+          border border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+  </svg>
+  Heatmap
+</a>
+{% endblock %}
+
+{% block content %}
+
+<p class="text-sm text-gray-400 mb-6">
+  Core expenses are fixed or recurring costs (e.g. mortgage, daycare). They can be excluded from
+  the heatmap to focus on discretionary spending, or viewed alone with the &quot;Only Core&quot; filter.
+</p>
+
+<!-- Add new core expense -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden mb-8">
+  <div class="px-5 py-4 border-b border-gray-800">
+    <h2 class="text-sm font-semibold text-gray-200">Add Core Expense</h2>
+    <p class="text-xs text-gray-500 mt-0.5">
+      Select a category to mark as a core expense.
+    </p>
+  </div>
+  <div class="p-5">
+    <form action="/moneypit/categories/core-expenses/add" method="post"
+          class="flex items-end gap-3">
+      <div class="flex-1 max-w-xs">
+        <label for="category-id" class="block text-xs font-medium text-gray-400 mb-1.5">
+          Category
+        </label>
+        <select id="category-id" name="category-id" required
+                class="w-full bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg
+                       px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+          <option value="">— select —</option>
+          {% for cat_id, cat_name in available_categories %}
+          <option value="{{ cat_id }}">{{ cat_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit"
+              class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold
+                     rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500
+                     focus:ring-offset-2 focus:ring-offset-gray-900 whitespace-nowrap
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+              {% if not available_categories %}disabled{% endif %}>
+        Add
+      </button>
+    </form>
+    {% if not available_categories and core_expenses %}
+    <p class="text-xs text-gray-500 mt-3">All categories are already marked as core expenses.</p>
+    {% elif not available_categories %}
+    <p class="text-xs text-gray-500 mt-3">Create categories first from the Categories page.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Current core expenses -->
+<div class="bg-gray-900 rounded-xl border border-gray-800 shadow-lg overflow-hidden">
+  <div class="px-5 py-4 border-b border-gray-800">
+    <h2 class="text-sm font-semibold text-gray-200">Core Expenses</h2>
+    <p class="text-xs text-gray-500 mt-0.5">
+      {{ core_expenses | length }} categor{{ 'y' if core_expenses | length == 1 else 'ies' }} marked as core
+    </p>
+  </div>
+
+  {% if core_expenses %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-800">
+        <th class="text-left px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
+        <th class="px-5 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-24">Remove</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-800/60">
+      {% for cat_id, cat_name in core_expenses %}
+      <tr class="hover:bg-gray-800/30 transition-colors">
+        <td class="px-5 py-3 text-gray-200">{{ cat_name }}</td>
+        <td class="px-5 py-3">
+          <form action="/moneypit/categories/core-expenses/remove" method="post" class="inline">
+            <input type="hidden" name="category-id" value="{{ cat_id }}">
+            <button type="submit"
+                    class="px-2.5 py-1 text-xs font-medium text-gray-400 hover:text-rose-400
+                           hover:bg-rose-950/30 rounded-lg transition-colors">
+              Remove
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-5 py-12 text-center">
+    <svg class="w-12 h-12 text-gray-700 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    <p class="text-gray-500 text-sm">No core expenses defined yet.</p>
+    <p class="text-gray-600 text-xs mt-1">Add categories above to get started.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -131,6 +131,16 @@ class SqliteClient:
             connection.execute_sql(table_sql)
             print("Created tblCategoryMatchString")
 
+        if "tblCoreExpenseCategory" not in tables:
+            table_sql = """
+            CREATE TABLE tblCoreExpenseCategory (
+                CategoryID INTEGER PRIMARY KEY,
+                FOREIGN KEY(CategoryID) REFERENCES tblCategory(CategoryID)
+            );
+            """
+            connection.execute_sql(table_sql)
+            print("Created tblCoreExpenseCategory")
+
         connection.wrap_it_up()
 
     def run_migrations(self):
@@ -189,6 +199,28 @@ class SqliteClient:
                 finally:
                     connection.wrap_it_up()
                 print("Migrated tblTransaction.TxCustomMemo")
+
+        # Create tblCoreExpenseCategory if missing and seed (for existing DBs)
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql("""
+                CREATE TABLE IF NOT EXISTS tblCoreExpenseCategory (
+                    CategoryID INTEGER PRIMARY KEY,
+                    FOREIGN KEY(CategoryID) REFERENCES tblCategory(CategoryID)
+                );
+            """)
+            connection.execute_sql("SELECT COUNT(*) FROM tblCoreExpenseCategory")
+            count = connection.get_results()[0][0]
+            if count == 0:
+                for name in ["daycare", "mortgage", "insurance", "renovation"]:
+                    cid = self.get_category_id(name)
+                    if cid:
+                        connection.execute_sql(
+                            f"INSERT OR IGNORE INTO tblCoreExpenseCategory (CategoryID) VALUES ({cid});"
+                        )
+                print("Migrated tblCoreExpenseCategory seeded")
+        finally:
+            connection.wrap_it_up()
 
     def _get_table_creation_sql(self, table_name):
         connection = ConnectionWrapper(self.database_name)
@@ -546,6 +578,56 @@ class SqliteClient:
         try:
             connection.execute_sql(sql)
             return connection.get_results()[0][0]
+        finally:
+            connection.wrap_it_up()
+
+    def get_core_expense_category_names(self):
+        """Return list of category names marked as core expenses."""
+        sql = """
+        SELECT cat.Name
+        FROM tblCoreExpenseCategory cec
+        INNER JOIN tblCategory cat ON cat.CategoryID = cec.CategoryID
+        ORDER BY cat.Name ASC
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return [r[0] for r in connection.get_results()]
+        finally:
+            connection.wrap_it_up()
+
+    def get_core_expense_categories(self):
+        """Return list of (CategoryID, Name) for core expenses."""
+        sql = """
+        SELECT cat.CategoryID, cat.Name
+        FROM tblCoreExpenseCategory cec
+        INNER JOIN tblCategory cat ON cat.CategoryID = cec.CategoryID
+        ORDER BY cat.Name ASC
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return connection.get_results()
+        finally:
+            connection.wrap_it_up()
+
+    def add_core_expense_category(self, category_id):
+        """Mark a category as a core expense."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                f"INSERT OR IGNORE INTO tblCoreExpenseCategory (CategoryID) VALUES ({int(category_id)});"
+            )
+        finally:
+            connection.wrap_it_up()
+
+    def remove_core_expense_category(self, category_id):
+        """Remove a category from core expenses."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                f"DELETE FROM tblCoreExpenseCategory WHERE CategoryID = {int(category_id)};"
+            )
         finally:
             connection.wrap_it_up()
 
