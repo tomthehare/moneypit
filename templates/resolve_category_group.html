@@ -62,9 +62,10 @@
       <select name="category-id"
               class="flex-1 bg-gray-800 border border-gray-700 text-gray-100 text-sm rounded-lg px-3 py-2.5
                      focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent">
+        <option value="" {{ 'selected' if not category_guess else '' }}>— uncategorized —</option>
         {% for iterator_cat in categories %}
         <option value="{{ iterator_cat[0] }}"
-          {{ 'selected' if iterator_cat[1] == category_guess else '' }}>
+          {{ 'selected' if category_guess and iterator_cat[1] == category_guess else '' }}>
           {{ iterator_cat[1] }}
         </option>
         {% endfor %}

@@ -481,7 +481,8 @@ def save_categories():
 
     iter = 0
     while iter < len(category_ids):
-        db_client.update_category(int(tx_ids[iter]), int(category_ids[iter]))
+        cat_id = category_ids[iter]
+        db_client.update_category(int(tx_ids[iter]), int(cat_id) if cat_id else None)
         iter = iter + 1
 
     return heatmap_months()
@@ -489,20 +490,20 @@ def save_categories():
 
 @app.route("/moneypit/transaction-group/category", methods=["POST"])
 def save_category_for_tx_group():
-    category_id = request.form["category-id"]
+    category_id = request.form.get("category-id", "").strip()
     tx_ids = request.form["tx-ids"].split(",")
 
+    cat_id = int(category_id) if category_id else None
     iter = 0
     while iter < len(tx_ids):
-        db_client.update_category(int(tx_ids[iter]), int(category_id))
+        db_client.update_category(int(tx_ids[iter]), cat_id)
         iter = iter + 1
 
-    # Find the category string since all we received was a transaction ID
-    tx_data = db_client.get_transaction(tx_ids[0])
-    memo_raw = tx_data.get("memo_raw") or tx_data["memo"]
-
-    # Make note of it for the future so it will show up next time
-    db_client.insert_memo_to_category(memo_raw, category_id)
+    # Make note of it for the future so it will show up next time (only when categorizing, not uncategorizing)
+    if cat_id:
+        tx_data = db_client.get_transaction(tx_ids[0])
+        memo_raw = tx_data.get("memo_raw") or tx_data["memo"]
+        db_client.insert_memo_to_category(memo_raw, cat_id)
 
     return render_uncategorized_transactions_group_page()
 
@@ -584,11 +585,13 @@ def delete_file_and_transactions(file_id):
 @app.route("/moneypit/api/transaction/<int:tx_id>/category", methods=["POST"])
 def api_update_tx_category(tx_id):
     data = request.get_json()
-    category_id = data.get("category_id")
-    if category_id is None:
+    if data is None or "category_id" not in data:
         return jsonify({"ok": False, "error": "missing category_id"}), 400
-    db_client.update_category(tx_id, int(category_id))
-    return jsonify({"ok": True, "tx_id": tx_id, "category_id": category_id})
+    category_id = data.get("category_id")
+    # Allow null/None to set uncategorized
+    cat_id = int(category_id) if category_id is not None and category_id != "" else None
+    db_client.update_category(tx_id, cat_id)
+    return jsonify({"ok": True, "tx_id": tx_id, "category_id": cat_id})
 
 
 @app.route("/moneypit/api/transaction/<int:tx_id>/custom-memo", methods=["POST"])

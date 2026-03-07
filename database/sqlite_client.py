@@ -654,9 +654,10 @@ class SqliteClient:
             connection.wrap_it_up()
 
     def update_category(self, tx_id, category_id):
+        cat_value = "NULL" if category_id is None or category_id == "" else str(int(category_id))
         sql = f"""
         UPDATE tblTransaction 
-        SET TxCategoryID = {category_id}
+        SET TxCategoryID = {cat_value}
         WHERE TxID = {tx_id}
         """
 
