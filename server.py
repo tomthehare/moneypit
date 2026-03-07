@@ -6,6 +6,7 @@ from datetime import datetime
 from json2html import *
 import pytz
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileRequired
 from wtforms import FileField, SubmitField, SelectField
 
 from categories.categorizer import Categorizer
@@ -307,7 +308,7 @@ def delete_tx():
 
 
 class UploadFileForm(FlaskForm):
-    file = FileField("File")
+    file = FileField("File", validators=[FileRequired("Please select a file to upload.")])
     submit = SubmitField("Upload file")
 
 

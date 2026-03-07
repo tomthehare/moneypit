@@ -47,6 +47,9 @@
     <div class="p-5">
       <form method="post" action="/moneypit/transaction/upload" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
+        {% if form.file.errors %}
+        <p class="text-sm text-red-400 mb-4">{{ form.file.errors[0] }}</p>
+        {% endif %}
 
         <!-- Drop zone -->
         <label for="file" class="upload-zone flex flex-col items-center justify-center gap-3
@@ -59,7 +62,7 @@
             <p class="text-sm font-medium text-gray-300">Click to select a file</p>
             <p class="text-xs text-gray-500 mt-1">CSV files supported</p>
           </div>
-          <input type="file" id="file" name="file"
+          <input type="file" id="file" name="file" required
                  class="sr-only"
                  onchange="document.getElementById('filename-display').textContent = this.files[0]?.name || ''">
         </label>
