@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from flask import Flask, request, render_template, redirect, jsonify, session, url_for, flash
+from flask import Flask, request, render_template, redirect, jsonify, session, url_for, flash, send_file, after_this_request
 from datetime import datetime
 from json2html import *
 import pytz
@@ -332,6 +332,27 @@ SOURCE_CHOICES = [
     ("Barclays", "Barclays"),
     ("AmericanExpress", "American Express"),
 ]
+
+
+@app.route("/moneypit/backup/download")
+def backup_download():
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sqlite", "tx.db")
+    if not os.path.isfile(db_path):
+        return "Database not found", 404
+    timestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+    filename = f"moneypit-backup-{timestamp}.db"
+    temp_path = os.path.join("/tmp", filename)
+    shutil.copy2(db_path, temp_path)
+
+    @after_this_request
+    def remove_temp(response):
+        try:
+            os.remove(temp_path)
+        except OSError:
+            pass
+        return response
+
+    return send_file(temp_path, as_attachment=True, download_name=filename)
 
 
 @app.route("/moneypit/transaction/upload", methods=["POST", "GET"])
