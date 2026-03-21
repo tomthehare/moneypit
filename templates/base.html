@@ -91,7 +91,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
         </svg>
-        Categorize
+        <span class="flex-1">Categorize</span>
+        {% if uncategorized_count > 0 %}
+        <span class="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-semibold bg-amber-600/80 text-amber-100">
+          {{ uncategorized_count }}
+        </span>
+        {% endif %}
       </a>
       <a href="/moneypit/categories"
          class="nav-link group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
@@ -145,6 +150,26 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <!-- Flash toast (global) -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% set cat, msg = messages[0] %}
+  <div id="flash-toast"
+       class="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-xl
+              text-sm font-medium {% if cat == 'success' %}bg-brand-900/90 border border-brand-700 text-brand-100{% else %}bg-gray-800 border border-gray-700 text-gray-200{% endif %}">
+    {{ msg }}
+  </div>
+  <script>
+    (function() {
+      const toast = document.getElementById('flash-toast');
+      if (toast) {
+        setTimeout(function() { toast.classList.add('hidden'); }, 2500);
+      }
+    })();
+  </script>
+  {% endif %}
+  {% endwith %}
 
   <script>
     (function() {

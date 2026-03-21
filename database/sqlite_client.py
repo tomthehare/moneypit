@@ -476,6 +476,20 @@ class SqliteClient:
         finally:
             connection.wrap_it_up()
 
+    def get_uncategorized_transactions_count(self):
+        sql = """
+        SELECT COUNT(*)
+        FROM tblTransaction tx
+        WHERE TxCategoryID IS NULL AND tx.DateDeleted IS NULL
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            result = connection.get_results()
+            return result[0][0] if result else 0
+        finally:
+            connection.wrap_it_up()
+
     def get_uncategorized_transactions(self):
         sql = """
         SELECT TxID, TxDenomination, TxMemoRaw, TxCustomMemo, TxDateHuman, sb.Name

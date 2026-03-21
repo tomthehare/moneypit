@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from flask import Flask, request, render_template, redirect, jsonify, session, url_for
+from flask import Flask, request, render_template, redirect, jsonify, session, url_for, flash
 from datetime import datetime
 from json2html import *
 import pytz
@@ -42,6 +42,11 @@ _logger.addHandler(handler)
 coloredlogs.install(level="DEBUG")
 
 IGNORED_CATEGORIES = ["credit card payment", "account transfers"]
+
+
+@app.context_processor
+def inject_uncategorized_count():
+    return {"uncategorized_count": db_client.get_uncategorized_transactions_count()}
 
 
 @app.template_filter("add_month_filter")
@@ -342,7 +347,8 @@ def upload_file():
         input_file = InputFile(db_client)
         try:
             input_file.insert_file(filepath)
-            return render_file_transactions_page()
+            flash("File uploaded successfully", "success")
+            return redirect(url_for("heatmap_months"))
         except Exception as e:
             if "No idea how to parse it:" in str(e):
                 session["upload_pending_path"] = filepath
@@ -391,7 +397,8 @@ def select_source():
 
         session.pop("upload_pending_path", None)
         session.pop("upload_pending_filename", None)
-        return render_file_transactions_page()
+        flash("File uploaded successfully", "success")
+        return redirect(url_for("heatmap_months"))
 
     return render_template(
         "select_source.html",
