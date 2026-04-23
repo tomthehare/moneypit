@@ -772,6 +772,11 @@ def _budget_excluded_name(name):
     return name.lower() in ("transfer", "credit card payment")
 
 
+def _budget_month_not_started_yet(month_key):
+    """True if current time is still before the first instant of the given YYYY-MM (local, same as date keys)."""
+    return timestamp_now() < get_timestamp_for_datekey(month_key)
+
+
 def _budget_6mo_window_label(end_month_key):
     """Human-readable range for 6-mo average (months end_month-6 .. end_month-1)."""
     r_start = add_month(end_month_key, -6)
@@ -866,6 +871,21 @@ def budget_plan_month():
     month_key = _parse_month_key_param(request.args.get("month"))
 
     if request.method == "POST":
+        if request.form.get("action") == "unlock":
+            m_in, was_locked = db_client.get_monthly_budget(month_key)
+            if m_in is None:
+                flash("No budget for that month yet.", "error")
+                return redirect(url_for("budget_plan_month", month=month_key))
+            if not was_locked:
+                flash("That month is not locked.", "error")
+                return redirect(url_for("budget_plan_month", month=month_key))
+            if not _budget_month_not_started_yet(month_key):
+                flash("Cannot unlock: this month has already started.", "error")
+                return redirect(url_for("budget_plan_month", month=month_key))
+            db_client.set_monthly_budget_locked(month_key, False)
+            flash("Budget unlocked. You can edit the plan again.", "success")
+            return redirect(url_for("budget_plan_month", month=month_key))
+
         if request.form.get("action") == "fill_template":
             _inc_m, is_l = db_client.get_monthly_budget(month_key)
             if is_l:
@@ -906,6 +926,7 @@ def budget_plan_month():
 
     avgs = db_client.get_category_6mo_avg_monthly_spend(month_key)
     rows = [(c, n, a, avgs.get(c, 0.0)) for c, n, a in rows]
+    can_unlock = bool(is_locked and m_income is not None and _budget_month_not_started_yet(month_key))
     return render_template(
         "budget_plan.html",
         month_key=month_key,
@@ -915,6 +936,7 @@ def budget_plan_month():
         income=form_income,
         rows=rows,
         is_locked=is_locked,
+        can_unlock=can_unlock,
         template_income=t_income,
         avg_window_label=_budget_6mo_window_label(month_key),
     )
