@@ -1,5 +1,6 @@
 import sqlite3
 
+from utility.time_helper import add_month, get_timestamp_for_datekey
 from utility.time_observer import TimeObserver
 
 
@@ -140,6 +141,54 @@ class SqliteClient:
             """
             connection.execute_sql(table_sql)
             print("Created tblCoreExpenseCategory")
+
+        if "tblBudgetTemplate" not in tables:
+            table_sql = """
+            CREATE TABLE tblBudgetTemplate (
+                Id INTEGER PRIMARY KEY CHECK (Id = 1),
+                TotalIncome REAL NOT NULL DEFAULT 0
+            );
+            """
+            connection.execute_sql(table_sql)
+            connection.execute_sql(
+                "INSERT OR IGNORE INTO tblBudgetTemplate (Id, TotalIncome) VALUES (1, 0);"
+            )
+            print("Created tblBudgetTemplate")
+
+        if "tblBudgetTemplateLine" not in tables:
+            table_sql = """
+            CREATE TABLE tblBudgetTemplateLine (
+                CategoryID INTEGER PRIMARY KEY,
+                BudgetAmount REAL NOT NULL DEFAULT 0,
+                FOREIGN KEY(CategoryID) REFERENCES tblCategory(CategoryID)
+            );
+            """
+            connection.execute_sql(table_sql)
+            print("Created tblBudgetTemplateLine")
+
+        if "tblMonthlyBudget" not in tables:
+            table_sql = """
+            CREATE TABLE tblMonthlyBudget (
+                MonthKey TEXT PRIMARY KEY,
+                TotalIncome REAL NOT NULL DEFAULT 0,
+                IsLocked INTEGER NOT NULL DEFAULT 0
+            );
+            """
+            connection.execute_sql(table_sql)
+            print("Created tblMonthlyBudget")
+
+        if "tblMonthlyBudgetLine" not in tables:
+            table_sql = """
+            CREATE TABLE tblMonthlyBudgetLine (
+                MonthKey TEXT,
+                CategoryID INTEGER NOT NULL,
+                BudgetAmount REAL NOT NULL DEFAULT 0,
+                PRIMARY KEY (MonthKey, CategoryID),
+                FOREIGN KEY(CategoryID) REFERENCES tblCategory(CategoryID)
+            );
+            """
+            connection.execute_sql(table_sql)
+            print("Created tblMonthlyBudgetLine")
 
         connection.wrap_it_up()
 
@@ -1000,5 +1049,190 @@ class SqliteClient:
             connection.execute_sql(
                 f"DELETE FROM tblInputFile WHERE InputFileID = {int(file_id)};"
             )
+        finally:
+            connection.wrap_it_up()
+
+    BUDGET_EXCLUDED_CATEGORIES = ("transfer", "credit card payment")
+
+    def get_budget_template(self):
+        """Return (total_income, list of (category_id, name, amount))."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql("SELECT TotalIncome FROM tblBudgetTemplate WHERE Id = 1")
+            r = connection.get_results()
+            income = float(r[0][0]) if r else 0.0
+        finally:
+            connection.wrap_it_up()
+
+        amounts = {}
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                "SELECT CategoryID, BudgetAmount FROM tblBudgetTemplateLine"
+            )
+            for row in connection.get_results():
+                amounts[int(row[0])] = float(row[1])
+        finally:
+            connection.wrap_it_up()
+
+        rows = []
+        for cat_id, name in self.get_categories():
+            if name.lower() in self.BUDGET_EXCLUDED_CATEGORIES:
+                continue
+            rows.append((cat_id, name, amounts.get(cat_id, 0.0)))
+        rows.sort(key=lambda x: x[1].lower())
+        return income, rows
+
+    def save_budget_template(self, total_income, category_amounts):
+        """category_amounts: {category_id: float}."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                f"UPDATE tblBudgetTemplate SET TotalIncome = {float(total_income)} WHERE Id = 1"
+            )
+            connection.execute_sql("DELETE FROM tblBudgetTemplateLine")
+            for cat_id, amt in category_amounts.items():
+                cid = int(cat_id)
+                connection.execute_sql(
+                    f"INSERT INTO tblBudgetTemplateLine (CategoryID, BudgetAmount) VALUES ({cid}, {float(amt)});"
+                )
+        finally:
+            connection.wrap_it_up()
+
+    def get_monthly_budget(self, month_key):
+        """Return (total_income, is_locked) or (None, None) if no row."""
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            safe = month_key.replace("'", "''")
+            connection.execute_sql(
+                f"SELECT TotalIncome, IsLocked FROM tblMonthlyBudget WHERE MonthKey = '{safe}'"
+            )
+            r = connection.get_results()
+            if not r:
+                return None, None
+            return float(r[0][0]), int(r[0][1]) == 1
+        finally:
+            connection.wrap_it_up()
+
+    def get_monthly_budget_lines(self, month_key):
+        """Return dict category_id -> amount."""
+        safe = month_key.replace("'", "''")
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(
+                f"SELECT CategoryID, BudgetAmount FROM tblMonthlyBudgetLine WHERE MonthKey = '{safe}'"
+            )
+            return {int(row[0]): float(row[1]) for row in connection.get_results()}
+        finally:
+            connection.wrap_it_up()
+
+    def save_monthly_budget(self, month_key, total_income, category_amounts, is_locked):
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            safe = month_key.replace("'", "''")
+            locked = 1 if is_locked else 0
+            connection.execute_sql(
+                f"""INSERT INTO tblMonthlyBudget (MonthKey, TotalIncome, IsLocked)
+                VALUES ('{safe}', {float(total_income)}, {locked})
+                ON CONFLICT(MonthKey) DO UPDATE SET
+                TotalIncome = excluded.TotalIncome, IsLocked = excluded.IsLocked"""
+            )
+            connection.execute_sql(
+                f"DELETE FROM tblMonthlyBudgetLine WHERE MonthKey = '{safe}'"
+            )
+            for cat_id, amt in category_amounts.items():
+                cid = int(cat_id)
+                connection.execute_sql(
+                    f"""INSERT INTO tblMonthlyBudgetLine (MonthKey, CategoryID, BudgetAmount)
+                    VALUES ('{safe}', {cid}, {float(amt)});"""
+                )
+        finally:
+            connection.wrap_it_up()
+
+    def set_monthly_budget_locked(self, month_key, locked=True):
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            safe = month_key.replace("'", "''")
+            v = 1 if locked else 0
+            connection.execute_sql(
+                f"UPDATE tblMonthlyBudget SET IsLocked = {v} WHERE MonthKey = '{safe}'"
+            )
+        finally:
+            connection.wrap_it_up()
+
+    def copy_template_to_month(self, month_key):
+        """Create or update a monthly budget from the template; preserves lock state if row exists."""
+        template_income, rows = self.get_budget_template()
+        lines = {int(cat_id): float(amt) for cat_id, _name, amt in rows}
+        income = float(template_income)
+        safe = month_key.replace("'", "''")
+        sub = ConnectionWrapper(self.database_name)
+        try:
+            sub.execute_sql(
+                f"SELECT IsLocked FROM tblMonthlyBudget WHERE MonthKey = '{safe}'"
+            )
+            r = sub.get_results()
+            is_locked = int(r[0][0]) == 1 if r else 0
+        finally:
+            sub.wrap_it_up()
+
+        self.save_monthly_budget(
+            month_key, income, lines, is_locked=bool(is_locked)
+        )
+
+    def get_category_tx_sum_for_month(self, month_key):
+        """Return dict category_id -> sum(TxDenomination) for the calendar month, excluding
+        system categories, non-deleted rows only.
+        """
+        ts_start = get_timestamp_for_datekey(month_key)
+        ts_end = get_timestamp_for_datekey(add_month(month_key))
+        sql = f"""
+        SELECT cat.CategoryID, COALESCE(SUM(tx.TxDenomination), 0)
+        FROM tblTransaction tx
+        INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
+        WHERE cat.Name NOT IN ('transfer', 'credit card payment')
+          AND tx.DateDeleted IS NULL
+          AND tx.TxDateTimestamp >= {ts_start}
+          AND tx.TxDateTimestamp < {ts_end}
+        GROUP BY cat.CategoryID
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            return {int(row[0]): float(row[1]) for row in connection.get_results()}
+        finally:
+            connection.wrap_it_up()
+
+    def get_category_6mo_avg_monthly_spend(self, end_month_key):
+        """For each category, (sum of TxDenomination) / 6 for transactions in
+        the six full calendar months before end_month (not including end_month):
+        [add_month(end, -6), add_month(end, 0)) in timestamp form.
+
+        Returns dict category_id -> value where value is -total/6.0, so a typical
+        net outflow shows as a positive number (credits in the window show as
+        negative or small).
+        """
+        start_key = add_month(end_month_key, -6)
+        ts_start = get_timestamp_for_datekey(start_key)
+        ts_end = get_timestamp_for_datekey(end_month_key)
+        sql = f"""
+        SELECT cat.CategoryID, COALESCE(SUM(tx.TxDenomination), 0) AS T
+        FROM tblTransaction tx
+        INNER JOIN tblCategory cat ON tx.TxCategoryID = cat.CategoryID
+        WHERE cat.Name NOT IN ('transfer', 'credit card payment')
+          AND tx.DateDeleted IS NULL
+          AND tx.TxDateTimestamp >= {ts_start}
+          AND tx.TxDateTimestamp < {ts_end}
+        GROUP BY cat.CategoryID
+        """
+        connection = ConnectionWrapper(self.database_name)
+        try:
+            connection.execute_sql(sql)
+            out = {}
+            for row in connection.get_results():
+                cid = int(row[0])
+                total = float(row[1])
+                out[cid] = -(total / 6.0)
+            return out
         finally:
             connection.wrap_it_up()

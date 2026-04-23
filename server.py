@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 
 from flask import Flask, request, render_template, redirect, jsonify, session, url_for, flash, send_file, after_this_request
 from datetime import datetime
@@ -732,3 +733,188 @@ def manage_categories():
     categories = db_client.get_categories()
 
     return render_template("categories.html", data=[a[1] for a in categories])
+
+
+def _parse_month_key_param(arg):
+    if arg and len(arg) == 7 and arg[4] == "-":
+        return arg
+    return get_datekey_for_timestamp(timestamp_now())
+
+
+def _parse_budget_income_from_form():
+    raw = (request.form.get("income") or "").strip().replace(",", "")
+    if not raw:
+        return 0.0
+    try:
+        return float(raw)
+    except ValueError:
+        return 0.0
+
+
+def _parse_category_amounts_from_form(name_prefix="cat"):
+    out = {}
+    for key, val in request.form.items():
+        p = name_prefix + "-"
+        if not key.startswith(p):
+            continue
+        rest = key[len(p) :]
+        if not rest.isdigit():
+            continue
+        raw = (val or "").strip().replace(",", "")
+        try:
+            out[int(rest)] = float(raw) if raw else 0.0
+        except ValueError:
+            out[int(rest)] = 0.0
+    return out
+
+
+def _budget_excluded_name(name):
+    return name.lower() in ("transfer", "credit card payment")
+
+
+def _budget_6mo_window_label(end_month_key):
+    """Human-readable range for 6-mo average (months end_month-6 .. end_month-1)."""
+    r_start = add_month(end_month_key, -6)
+    r_end = add_month(end_month_key, -1)
+    return (
+        f"{format_timestamp(get_timestamp_for_datekey(r_start), '%b %Y')}"
+        f" – {format_timestamp(get_timestamp_for_datekey(r_end), '%b %Y')}"
+    )
+
+
+def _rows_for_month_progress(month_key):
+    """List of dicts with category_id, name, budget, tx_sum, remaining."""
+    lines = db_client.get_monthly_budget_lines(month_key)
+    spend = db_client.get_category_tx_sum_for_month(month_key)
+    rows = []
+    for cat_id, name in db_client.get_categories():
+        if _budget_excluded_name(name):
+            continue
+        b = lines.get(cat_id, 0.0)
+        tx = spend.get(cat_id, 0.0)
+        rows.append(
+            {
+                "category_id": cat_id,
+                "name": name,
+                "budget": b,
+                "tx_sum": tx,
+                "remaining": b + tx,
+            }
+        )
+    rows.sort(key=lambda r: r["name"].lower())
+    return rows
+
+
+@app.route("/moneypit/budget", methods=["GET"])
+def budget_current_month():
+    month_key = _parse_month_key_param(request.args.get("month"))
+    prev_m = add_month(month_key, -1)
+    next_m = add_month(month_key, 1)
+    month_label = format_timestamp(get_timestamp_for_datekey(month_key), "%B %Y")
+
+    income, is_locked = db_client.get_monthly_budget(month_key)
+    if income is None:
+        return render_template(
+            "budget_status.html",
+            month_key=month_key,
+            month_label=month_label,
+            prev_m=prev_m,
+            next_m=next_m,
+            has_budget=False,
+            total_income=0.0,
+            is_locked=False,
+            rows=[],
+        )
+
+    rows = _rows_for_month_progress(month_key)
+    return render_template(
+        "budget_status.html",
+        month_key=month_key,
+        month_label=month_label,
+        prev_m=prev_m,
+        next_m=next_m,
+        has_budget=True,
+        total_income=income,
+        is_locked=is_locked,
+        rows=rows,
+    )
+
+
+@app.route("/moneypit/budget/template", methods=["GET", "POST"])
+def budget_template():
+    if request.method == "POST":
+        inc = _parse_budget_income_from_form()
+        amounts = _parse_category_amounts_from_form("cat")
+        db_client.save_budget_template(inc, amounts)
+        flash("Budget template saved.", "success")
+        return redirect(url_for("budget_template"))
+
+    income, rows = db_client.get_budget_template()
+    anchor = get_datekey_for_timestamp(timestamp_now())
+    avgs = db_client.get_category_6mo_avg_monthly_spend(anchor)
+    rows = [(c, n, a, avgs.get(c, 0.0)) for c, n, a in rows]
+    return render_template(
+        "budget_template.html",
+        income=income,
+        rows=rows,
+        avg_window_label=_budget_6mo_window_label(anchor),
+    )
+
+
+@app.route("/moneypit/budget/plan", methods=["GET", "POST"])
+def budget_plan_month():
+    month_key = _parse_month_key_param(request.args.get("month"))
+
+    if request.method == "POST":
+        if request.form.get("action") == "fill_template":
+            _inc_m, is_l = db_client.get_monthly_budget(month_key)
+            if is_l:
+                flash("This month is locked; template was not applied.", "error")
+                return redirect(url_for("budget_plan_month", month=month_key))
+            db_client.copy_template_to_month(month_key)
+            flash("Filled this month from your template.", "success")
+            return redirect(url_for("budget_plan_month", month=month_key))
+
+        inc = _parse_budget_income_from_form()
+        amounts = _parse_category_amounts_from_form("cat")
+        _inc_exist, is_locked = db_client.get_monthly_budget(month_key)
+        if is_locked:
+            flash("This month is locked. Budget cannot be edited here.", "error")
+            return redirect(url_for("budget_plan_month", month=month_key))
+
+        lock_after = request.form.get("action") == "lock"
+        db_client.save_monthly_budget(month_key, inc, amounts, is_locked=lock_after)
+        if lock_after:
+            flash("Budget saved and locked for this month.", "success")
+        else:
+            flash("Budget saved.", "success")
+        return redirect(url_for("budget_plan_month", month=month_key))
+
+    prev_m = add_month(month_key, -1)
+    next_m = add_month(month_key, 1)
+    month_label = format_timestamp(get_timestamp_for_datekey(month_key), "%B %Y")
+    t_income, t_rows = db_client.get_budget_template()
+    m_income, is_locked = db_client.get_monthly_budget(month_key)
+    if m_income is None:
+        rows = t_rows
+        form_income = t_income
+        is_locked = False
+    else:
+        m_lines = db_client.get_monthly_budget_lines(month_key)
+        rows = [(cid, n, m_lines.get(cid, 0.0)) for cid, n, _ in t_rows]
+        form_income = m_income
+
+    avgs = db_client.get_category_6mo_avg_monthly_spend(month_key)
+    rows = [(c, n, a, avgs.get(c, 0.0)) for c, n, a in rows]
+    return render_template(
+        "budget_plan.html",
+        month_key=month_key,
+        month_label=month_label,
+        prev_m=prev_m,
+        next_m=next_m,
+        income=form_income,
+        rows=rows,
+        is_locked=is_locked,
+        template_income=t_income,
+        avg_window_label=_budget_6mo_window_label(month_key),
+    )

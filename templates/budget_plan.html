@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Plan — {{ month_label }}{% endblock %}
+{% block page_title %}Plan budget — {{ month_label }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2 flex-wrap justify-end text-sm">
+  <a href="{{ url_for('budget_current_month', month=month_key) }}"
+     class="px-2 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">Status</a>
+  <a href="{{ url_for('budget_plan_month', month=prev_m) }}"
+     class="px-2 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">←</a>
+  <a href="{{ url_for('budget_plan_month', month=next_m) }}"
+     class="px-2 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">→</a>
+  <a href="{{ url_for('budget_template') }}"
+     class="px-3 py-1.5 rounded-lg text-gray-400 hover:text-white">Template</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  {% if is_locked %}
+  <p class="text-amber-200/90 text-sm mb-2 rounded border border-amber-800/50 bg-amber-950/20 px-3 py-2">
+    This month is <strong>locked</strong> — the plan is read-only. View progress on
+    <a class="text-brand-400 hover:underline" href="{{ url_for('budget_current_month', month=month_key) }}">status</a>.
+  </p>
+  {% else %}
+  <p class="text-gray-400 text-sm mb-2">
+    Allocate income to categories. <strong>Left to assign</strong> should be zero (or you can save anyway and adjust later).
+    When you are done, use <em>Save and lock</em> to prevent further edits on this page.
+  </p>
+  {% endif %}
+  <p class="text-gray-500 text-xs mb-4">
+    <strong class="text-gray-400">6-mo average</strong> ({{ avg_window_label }}) is based on the six full
+    calendar months before {{ month_key }}; positive = typical net outflow in that window
+    (negative if net credits/refunds; same sign idea as the budget you enter).
+  </p>
+
+  <form method="post" class="space-y-4" id="budget-plan-form"
+        action="{{ url_for('budget_plan_month', month=month_key) }}">
+    <div class="rounded-lg border border-gray-800 bg-gray-900/50 p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+      <label class="block flex-1">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Income for this month</span>
+        <input type="text" name="income" id="income" inputmode="decimal" {{ 'readonly' if is_locked else '' }}
+               class="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-gray-100 tabular-nums {{ 'opacity-60' if is_locked else '' }}"
+               value="{{ "%.2f"|format(income) }}">
+      </label>
+      <div class="text-sm sm:text-right">
+        <span class="text-gray-500">Left to assign</span>
+        <div id="left-to-assign" class="text-2xl font-semibold text-brand-400 tabular-nums">0.00</div>
+      </div>
+    </div>
+
+    <div class="max-h-[50vh] overflow-y-auto pr-1 space-y-2">
+      <div class="hidden sm:grid sm:grid-cols-[1fr_5.5rem_5.5rem] gap-2 items-center px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <span>Category</span>
+        <span class="text-right" title="Average per month, six full months before this plan month">6-mo avg</span>
+        <span class="text-right">Budget</span>
+      </div>
+      {% for cat_id, name, amt, avg6 in rows %}
+      <div class="flex flex-wrap sm:grid sm:grid-cols-[1fr_5.5rem_5.5rem] sm:flex-none items-center gap-2 sm:gap-2 rounded-lg border border-gray-800/80 px-3 py-2">
+        <div class="flex-1 min-w-[8rem] sm:min-w-0">
+          <span class="text-sm text-gray-300">{{ name }}</span>
+          <span class="sm:hidden text-xs text-gray-500 tabular-nums"> · 6-mo {{ "%.2f"|format(avg6) }}</span>
+        </div>
+        <div class="hidden sm:block text-right text-sm tabular-nums w-[5.5rem] sm:w-auto
+                    {% if avg6 < 0 %}text-slate-400{% else %}text-gray-500{% endif %}">
+          {{ "%.2f"|format(avg6) }}
+        </div>
+        <input type="text" name="cat-{{ cat_id }}" inputmode="decimal" data-budget-amount
+               class="budget-amount w-full sm:w-[5.5rem] sm:ml-auto rounded border border-gray-700 bg-gray-950 px-2 py-1.5 text-right text-sm tabular-nums text-gray-100 {{ 'opacity-60' if is_locked else '' }}"
+               value="{{ "%.2f"|format(amt) }}" {{ 'readonly' if is_locked else '' }}>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="pt-2 flex flex-wrap items-center gap-3">
+      {% if not is_locked %}
+      <button type="submit" name="action" value="save" class="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600">
+        Save
+      </button>
+      <button type="submit" name="action" value="lock" class="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-500">
+        Save and lock
+      </button>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if not is_locked %}
+  <form method="post" class="mt-4 pt-4 border-t border-gray-800"
+        action="{{ url_for('budget_plan_month', month=month_key) }}">
+    <p class="text-sm text-gray-500 mb-2">Template (income <span class="tabular-nums text-gray-400">{{ "%.2f"|format(template_income) }}</span>) is used when you have not yet saved this month, or you can re-apply it below.</p>
+    <input type="hidden" name="action" value="fill_template">
+    <button type="submit" class="px-4 py-2 rounded-lg border border-gray-600 text-gray-200 hover:bg-gray-800 text-sm">
+      Fill from template
+    </button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const income = document.getElementById('income');
+  const out = document.getElementById('left-to-assign');
+  const inputs = document.querySelectorAll('input.budget-amount');
+  const locked = {{ is_locked|tojson }};
+  function recalc() {
+    const v = parseFloat(String(income.value).replace(/,/g, '')) || 0;
+    let s = 0;
+    inputs.forEach(function(i) { s += parseFloat(String(i.value).replace(/,/g, '')) || 0; });
+    const left = v - s;
+    out.textContent = left.toFixed(2);
+    out.className = 'text-2xl font-semibold tabular-nums ' +
+      (left < -0.005 ? 'text-red-400' : (Math.abs(left) < 0.005 ? 'text-gray-200' : 'text-brand-400'));
+  }
+  if (income && !locked) {
+    income.addEventListener('input', recalc);
+    inputs.forEach(function(i) { i.addEventListener('input', recalc); });
+  }
+  if (income) recalc();
+})();
+</script>
+{% endblock %}

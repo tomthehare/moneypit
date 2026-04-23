@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Budget template{% endblock %}
+{% block page_title %}Budget template{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('budget_current_month') }}"
+   class="text-sm text-gray-400 hover:text-white">This month</a>
+<a href="{{ url_for('budget_plan_month') }}"
+   class="text-sm text-gray-400 hover:text-white">Plan a month</a>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <p class="text-gray-400 text-sm mb-2">
+    Set default monthly income and how much to assign to each category. The total left at the top
+    updates as you type. This template can be used as a starting point when you
+    <a class="text-brand-400 hover:underline" href="{{ url_for('budget_plan_month') }}">plan a month</a>.
+  </p>
+  <p class="text-gray-500 text-xs mb-4">
+    <strong class="text-gray-400">6-mo avg</strong> = average monthly net for {{ avg_window_label }}
+    (positive if outflows dominated; negative if net credits in that period).
+  </p>
+
+  <form method="post" class="space-y-4" id="budget-template-form" action="{{ url_for('budget_template') }}">
+    <div class="rounded-lg border border-gray-800 bg-gray-900/50 p-4 flex flex-col sm:flex-row sm:items-end gap-3">
+      <label class="block flex-1">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Income to split</span>
+        <input type="text" name="income" id="income" inputmode="decimal" autocomplete="off"
+               class="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-gray-100 tabular-nums"
+               value="{{ "%.2f"|format(income) }}">
+      </label>
+      <div class="text-sm sm:text-right">
+        <span class="text-gray-500">Left to assign</span>
+        <div id="left-to-assign" class="text-2xl font-semibold text-brand-400 tabular-nums">0.00</div>
+      </div>
+    </div>
+
+    <div class="max-h-[60vh] overflow-y-auto pr-1 space-y-2">
+      <div class="hidden sm:grid sm:grid-cols-[1fr_5.5rem_5.5rem] gap-2 items-center px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <span>Category</span>
+        <span class="text-right" title="Average per month, six full months before this calendar month">6-mo avg</span>
+        <span class="text-right">Budget</span>
+      </div>
+      {% for cat_id, name, amt, avg6 in rows %}
+      <div class="flex flex-wrap sm:grid sm:grid-cols-[1fr_5.5rem_5.5rem] sm:flex-none items-center gap-2 sm:gap-2 rounded-lg border border-gray-800/80 px-3 py-2">
+        <div class="flex-1 min-w-[8rem] sm:min-w-0">
+          <span class="text-sm text-gray-300">{{ name }}</span>
+          <span class="sm:hidden text-xs text-gray-500 tabular-nums"> · 6-mo {{ "%.2f"|format(avg6) }}</span>
+        </div>
+        <div class="hidden sm:block text-right text-sm tabular-nums w-[5.5rem] sm:w-auto
+                    {% if avg6 < 0 %}text-slate-400{% else %}text-gray-500{% endif %}">
+          {{ "%.2f"|format(avg6) }}
+        </div>
+        <input type="text" name="cat-{{ cat_id }}" inputmode="decimal" data-budget-amount
+               class="budget-amount w-full sm:w-[5.5rem] sm:ml-auto rounded border border-gray-700 bg-gray-950 px-2 py-1.5 text-right text-sm tabular-nums text-gray-100"
+               value="{{ "%.2f"|format(amt) }}">
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="pt-2">
+      <button type="submit" class="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium hover:bg-brand-500">
+        Save template
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const income = document.getElementById('income');
+  const out = document.getElementById('left-to-assign');
+  const inputs = document.querySelectorAll('input.budget-amount');
+  function recalc() {
+    const v = parseFloat(String(income.value).replace(/,/g, '')) || 0;
+    let s = 0;
+    inputs.forEach(function(i) { s += parseFloat(String(i.value).replace(/,/g, '')) || 0; });
+    const left = v - s;
+    out.textContent = left.toFixed(2);
+    out.className = 'text-2xl font-semibold tabular-nums ' +
+      (left < -0.005 ? 'text-red-400' : (Math.abs(left) < 0.005 ? 'text-gray-200' : 'text-brand-400'));
+  }
+  if (income) {
+    income.addEventListener('input', recalc);
+    inputs.forEach(function(i) { i.addEventListener('input', recalc); });
+    recalc();
+  }
+})();
+</script>
+{% endblock %}

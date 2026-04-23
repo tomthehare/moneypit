@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Budget — {{ month_label }}{% endblock %}
+{% block page_title %}{{ month_label }}{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2 flex-wrap justify-end text-sm">
+  <a href="{{ url_for('budget_current_month', month=prev_m) }}"
+     class="px-2 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">←</a>
+  <a href="{{ url_for('budget_current_month', month=next_m) }}"
+     class="px-2 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800">→</a>
+  <a href="{{ url_for('budget_plan_month', month=month_key) }}"
+     class="px-3 py-1.5 rounded-lg bg-gray-800 text-gray-200 hover:bg-gray-700">
+    Plan / lock
+  </a>
+  <a href="{{ url_for('budget_template') }}"
+     class="px-3 py-1.5 rounded-lg text-gray-400 hover:text-white">Template</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+  <p class="text-gray-400 text-sm mb-4">
+    Budget vs transactions for the month. <strong>Left</strong> is budget plus net account activity
+    in that category (outflows are negative, so a negative left means you are over the plan).
+  </p>
+
+  {% if not has_budget %}
+  <div class="rounded-lg border border-amber-800/60 bg-amber-950/30 px-4 py-3 text-amber-100/90 text-sm">
+    No budget saved for this month yet. Copy from your
+    <a href="{{ url_for('budget_template') }}" class="text-brand-400 hover:underline">template</a>
+    or
+    <a href="{{ url_for('budget_plan_month', month=month_key) }}" class="text-brand-400 hover:underline">set the plan for {{ month_key }}</a>.
+  </div>
+  {% else %}
+  <div class="mb-4 flex items-center justify-between flex-wrap gap-2">
+    <p class="text-sm text-gray-400">
+      Planned income: <span class="text-gray-100 font-medium tabular-nums">{{ "%.2f"|format(total_income) }}</span>
+      {% if is_locked %}
+      <span class="ml-2 text-xs font-semibold uppercase tracking-wide text-brand-500/90">locked</span>
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-gray-800">
+    <table class="min-w-full text-sm text-left">
+      <thead>
+        <tr class="bg-gray-900/80 text-gray-400 text-xs uppercase tracking-wide border-b border-gray-800">
+          <th class="px-3 py-2 font-medium">Category</th>
+          <th class="px-3 py-2 font-medium text-right">Budget</th>
+          <th class="px-3 py-2 font-medium text-right">Net (txns)</th>
+          <th class="px-3 py-2 font-medium text-right">Left</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-800/80">
+        {% for r in rows %}
+        <tr class="hover:bg-gray-900/50">
+          <td class="px-3 py-2">
+            <a href="/moneypit/heatmap/transactions?date-key={{ month_key|urlencode }}&category={{ r.name|urlencode }}"
+               class="text-brand-400 hover:underline">
+              {{ r.name }}
+            </a>
+          </td>
+          <td class="px-3 py-2 text-right tabular-nums text-gray-200">{{ "%.2f"|format(r.budget) }}</td>
+          <td class="px-3 py-2 text-right tabular-nums text-gray-400">{{ "%.2f"|format(r.tx_sum) }}</td>
+          <td class="px-3 py-2 text-right font-medium tabular-nums {% if r.remaining < 0 %}text-red-400{% else %}text-brand-400{% endif %}">
+            {{ "%.2f"|format(r.remaining) }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
