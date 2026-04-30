@@ -1,4 +1,5 @@
 import coloredlogs, logging
+import csv
 import datetime
 import re
 
@@ -131,7 +132,16 @@ class BarclaysParser(Parser):
             if self.is_ignored_line(line):
                 continue
 
-            (tx_date, description, amount) = self.parse_line(line)
+            row = next(csv.reader([line]))
+            if len(row) < 4:
+                logging.debug(
+                    "Skipping Barclays line: need 4+ columns, got %d: %r",
+                    len(row),
+                    line[:120],
+                )
+                continue
+
+            (tx_date, description, amount) = self.parse_line_from_row(row)
 
             self.sqlite_client.insert_transaction(
                 amount,
@@ -147,7 +157,7 @@ class BarclaysParser(Parser):
         if line == "":
             return True
 
-        line = line.lower()
+        line_lower = line.lower()
         ignored_slugs = [
             "barclays bank delaware",
             "account number:",
@@ -156,21 +166,59 @@ class BarclaysParser(Parser):
         ]
 
         for ignored in ignored_slugs:
-            if ignored in line:
+            if ignored in line_lower:
                 return True
+
+        # Spreadsheet export: header only in column A
+        if line_lower.strip() == "transaction date":
+            return True
 
         return False
 
-    def parse_line(self, line):
-        line = self.replace_commas_between_quotes(line)
+    @staticmethod
+    def _looks_like_amount(s):
+        s = s.strip().replace(",", "").replace("$", "").strip()
+        if not s:
+            return False
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
-        (tx_date, description, category, amount) = line.split(",")
+    def parse_line_from_row(self, row):
+        # Wide exports: date, description, category, amount [, balance, ...]
+        if len(row) >= 4 and self._looks_like_amount(row[3]):
+            tx_date, description, _, amount = (
+                row[0].strip(),
+                row[1].strip(),
+                row[2].strip(),
+                row[3].strip(),
+            )
+        else:
+            tx_date = row[0].strip()
+            amount = row[-1].strip()
+            _ = row[-2].strip()
+            description = (
+                ",".join(s.strip() for s in row[1:-2])
+                if len(row) > 4
+                else row[1].strip()
+            )
 
         format = "%m/%d/%Y"
         tx_date = datetime.datetime.strptime(tx_date, format)
         tx_date = tx_date.strftime("%Y-%m-%d")
 
         return (tx_date, description, amount)
+
+    def parse_line(self, line):
+        row = next(csv.reader([line.strip()]))
+        if len(row) < 4:
+            raise ValueError(
+                "Barclays CSV line needs at least date, description, category, amount: "
+                + repr(line[:200])
+            )
+        return self.parse_line_from_row(row)
 
 
 class ChaseParser(Parser):

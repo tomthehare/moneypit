@@ -76,6 +76,16 @@ class Categorizer:
 
         return None
 
+    def resolved_category_id_for_memo(self, memo_raw):
+        """Return a category id when guess_best_category maps to an existing category, else None."""
+        best = self.guess_best_category(memo_raw)
+        if not best:
+            return None
+        cat_id = best.get("category_id")
+        if cat_id:
+            return cat_id
+        return self.sqlite_client.get_category_id(best["category_name"])
+
     def refresh_memos_to_cateogries_dict(self):
         data = self.sqlite_client.get_memos_to_categories()
 

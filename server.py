@@ -45,6 +45,35 @@ coloredlogs.install(level="DEBUG")
 IGNORED_CATEGORIES = ["credit card payment", "account transfers"]
 
 
+def apply_auto_resolved_uncategorized(db_client: SqliteClient, categorizer: Categorizer, max_rounds=5000):
+    """Assign categories for uncategorized rows when rules already imply a category. Returns rows updated."""
+    total = 0
+    for _ in range(max_rounds):
+        open_transactions = db_client.get_uncategorized_transactions()
+        if not open_transactions:
+            break
+        first_memo_raw = open_transactions[0][2]
+        cat_id = categorizer.resolved_category_id_for_memo(first_memo_raw)
+        if not cat_id:
+            break
+        tx_ids = [
+            tx_id
+            for tx_id, _d, memo_raw, _cm, _dt, _src in open_transactions
+            if memo_raw == first_memo_raw
+        ]
+        for tx_id in tx_ids:
+            db_client.update_category(tx_id, cat_id)
+        db_client.insert_memo_to_category(first_memo_raw, cat_id)
+        categorizer.refresh_memos_to_cateogries_dict()
+        total += len(tx_ids)
+    return total
+
+
+def run_auto_resolve_for_pending_uncategorized():
+    categorizer = Categorizer(db_client)
+    return apply_auto_resolved_uncategorized(db_client, categorizer)
+
+
 @app.context_processor
 def inject_uncategorized_count():
     return {"uncategorized_count": db_client.get_uncategorized_transactions_count()}
@@ -369,7 +398,15 @@ def upload_file():
         input_file = InputFile(db_client)
         try:
             input_file.insert_file(filepath)
-            flash("File uploaded successfully", "success")
+            auto_n = run_auto_resolve_for_pending_uncategorized()
+            if auto_n:
+                flash(
+                    "File uploaded successfully. Auto-categorized %s transaction%s."
+                    % (auto_n, "" if auto_n == 1 else "s"),
+                    "success",
+                )
+            else:
+                flash("File uploaded successfully", "success")
             return redirect(url_for("heatmap_months"))
         except Exception as e:
             if "No idea how to parse it:" in str(e):
@@ -411,6 +448,7 @@ def select_source():
             shutil.copy2(filepath, new_filepath)
             input_file = InputFile(db_client)
             input_file.insert_file(new_filepath)
+            auto_n = run_auto_resolve_for_pending_uncategorized()
         finally:
             try:
                 os.remove(filepath)
@@ -419,7 +457,14 @@ def select_source():
 
         session.pop("upload_pending_path", None)
         session.pop("upload_pending_filename", None)
-        flash("File uploaded successfully", "success")
+        if auto_n:
+            flash(
+                "File uploaded successfully. Auto-categorized %s transaction%s."
+                % (auto_n, "" if auto_n == 1 else "s"),
+                "success",
+            )
+        else:
+            flash("File uploaded successfully", "success")
         return redirect(url_for("heatmap_months"))
 
     return render_template(
@@ -430,9 +475,16 @@ def select_source():
 
 
 def render_uncategorized_transactions_group_page():
-    open_transactions = db_client.get_uncategorized_transactions()
-
     categorizer = Categorizer(db_client)
+    auto_applied = apply_auto_resolved_uncategorized(db_client, categorizer)
+    if auto_applied:
+        flash(
+            "Applied saved category rules to %s transaction%s."
+            % (auto_applied, "" if auto_applied == 1 else "s"),
+            "success",
+        )
+
+    open_transactions = db_client.get_uncategorized_transactions()
 
     transaction_group = []
     tx_ids = []
@@ -466,9 +518,16 @@ def render_uncategorized_transactions_group_page():
 
 
 def render_file_transactions_page():
-    open_transactions = db_client.get_uncategorized_transactions()
-
     categorizer = Categorizer(db_client)
+    auto_applied = apply_auto_resolved_uncategorized(db_client, categorizer)
+    if auto_applied:
+        flash(
+            "Applied saved category rules to %s transaction%s."
+            % (auto_applied, "" if auto_applied == 1 else "s"),
+            "success",
+        )
+
+    open_transactions = db_client.get_uncategorized_transactions()
 
     open_transactions_categorized = []
     for tx_id, denomination, memo_raw, custom_memo, date, source in open_transactions:
